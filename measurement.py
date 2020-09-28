@@ -34,7 +34,7 @@ class Measurement:
 
     def get_signals(rate):
       def segment(times):
-        return raw[times[0]*rate:times[1]*rate]
+        return raw[int(times[0]*rate):int(times[1]*rate)]
       baseline = segment(baseline_times)
       amusement = segment(amusement_times)
       stress = segment(stress_times)
@@ -60,8 +60,8 @@ class Measurement:
       else:
         signals = self.chest_amusement if for_amusement else self.chest_stress
 
-      end = sample_rate * time
-      start = sample_rate * (time - self.window_size)
+      end = int(sample_rate * time)
+      start = int(sample_rate * (time - self.window_size))
       if type(signals) is not pd.DataFrame:
         window = signals[start:end]
         if not for_wrist and self.flag and for_amusement: # handle funkiness of subject 11
