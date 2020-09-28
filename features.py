@@ -117,22 +117,26 @@ def my_hrv(peaks, sampling_rate):
   result.append(nk.hrv_frequency(peaks, sampling_rate=sampling_rate, vlf=(0.01, 0.04), lf=(0.04, 0.15), hf=(0.15, 0.4), vhf=(0.4, 1)))
   return pd.concat(result, axis=1)
 
+all_renamings = {}
+
 def get_hrv_features(peaks, prefix, sampling_rate):
   hrv = my_hrv(peaks, sampling_rate)
-  renamings = {
-    'HRV_VLF': prefix + 'HRV_ultra_low_freq',
-    'HRV_LF': prefix + 'HRV_low_freq',
-    'HRV_HF': prefix + 'HRV_high_freq',
-    'HRV_VHF': prefix + 'HRV_ultra_high_freq',
-    'HRV_LFn': prefix + 'HRV_low_freq_normalized', 
-    'HRV_HFn': prefix + 'HRV_high_freq_normalized',
-    'HRV_LFHF': prefix + 'HRV_low_high_freq_ratio',
-    'HRV_MeanNN': prefix + 'HRV_mean',
-    'HRV_SDNN': prefix + 'HRV_std',
-    'HRV_RMSSD': prefix + 'HRV_rms',
-    'HRV_pNN50': prefix + 'HRV_percent_large_intervals',
-    'HRV_TINN': prefix + 'HRV_tinn'
-  }
+  if prefix not in all_renamings:
+    all_renamings[prefix] = {
+      'HRV_VLF': prefix + 'HRV_ultra_low_freq',
+      'HRV_LF': prefix + 'HRV_low_freq',
+      'HRV_HF': prefix + 'HRV_high_freq',
+      'HRV_VHF': prefix + 'HRV_ultra_high_freq',
+      'HRV_LFn': prefix + 'HRV_low_freq_normalized', 
+      'HRV_HFn': prefix + 'HRV_high_freq_normalized',
+      'HRV_LFHF': prefix + 'HRV_low_high_freq_ratio',
+      'HRV_MeanNN': prefix + 'HRV_mean',
+      'HRV_SDNN': prefix + 'HRV_std',
+      'HRV_RMSSD': prefix + 'HRV_rms',
+      'HRV_pNN50': prefix + 'HRV_percent_large_intervals',
+      'HRV_TINN': prefix + 'HRV_tinn'
+    }
+  renamings = all_renamings[prefix]
   hrv = hrv[renamings.keys()]
   frequency_columns = ['HRV_VLF', 'HRV_LF', 'HRV_HF', 'HRV_VHF', 'HRV_LFn', 'HRV_HFn']
   hrv[frequency_columns] = hrv[frequency_columns].fillna(0.0)
