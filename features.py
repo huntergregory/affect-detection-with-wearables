@@ -74,7 +74,6 @@ def get_eda_features(eda, baseline_info, sampling_rate): # df with columns EDA_S
       eda_features['{}_{}'.format(SCR, name)] = 0
   else:
     eda_features[SCR + '_num_segments'] = num_onsets
-    if eda_features[SCR + '_num_segments'] == 0
     eda_features[SCR + '_sum_startle_magnitudes'] = sum(peaks.SCR_Amplitude)
     eda_features[SCR + '_sum_response_durations'] = sum(peaks.SCR_RiseTime)
     peak_start_index = 1 if peaks.index[0] < onsets.index[0] else 0
