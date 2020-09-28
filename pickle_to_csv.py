@@ -1,141 +1,127 @@
 import numpy as np
 import pandas as pd
 import math
-from features import get_signal_features
+import neurokit2 as nk
+from measurement import Measurement
+from features import get_temp_features, get_acc_features, get_eda_features, get_resp_features, get_emg_features, get_ecg_features, get_bvp_features
 
+## Special Process Functions
+no_process = lambda signal, rate: signal
+
+def standardized_eda_process(eda_signal, sampling_rate, method="neurokit"):
+  eda_cleaned = nk.eda_clean(eda_signal, sampling_rate=sampling_rate, method=method)
+  eda_cleaned_standardized = nk.standardize(eda_cleaned) # only change to eda_process
+  eda_decomposed = nk.eda_phasic(eda_cleaned_standardized, sampling_rate=sampling_rate)
+  peak_signal, info = nk.eda_peaks(eda_decomposed["EDA_Phasic"].values, sampling_rate=sampling_rate, method=method, amplitude_min=0.1)
+  signals = pd.DataFrame({"EDA_Raw": eda_signal, "EDA_Clean": eda_cleaned, "EDA_Clean_Standardized": eda_cleaned_standardized})
+  signals = pd.concat([signals, eda_decomposed, peak_signal], axis=1)
+  return signals, info
+
+def my_emg_process(emg_signal, sampling_rate):
+  return nk.emg_process(emg_signal, sample_rating=sampling_rate) # TODO update
+
+## Baseline Info Functions
+no_baseline_info = lambda baseline, rate: None
+
+############################
+## MODIFY THESE. All window sizes in seconds
 EDA = 'EDA'
 ACC = 'ACC'
 TEMP = 'TEMP'
 ECG = 'ECG'
 EMG = 'EMG'
-RESP = 'Resp'
+RESP = 'RESP'
 BVP = 'BVP'
 
-shared_measurements = [ACC, TEMP, EDA] # 32, 4, and 4 Hz for wrist
-chest_measurements = [ECG, EMG, RESP] + shared_measurements # all at 700 Hz
-wrist_measurements = [BVP] + shared_measurements # 64 Hz
-
-WRIST_SAMPLE_RATES = {
-  BVP: 64,
-  ACC: 32,
-  TEMP: 4,
-  EDA: 4,
-}
-
-# don't worry about these
-POSSIBLE_SAMPLE_RATES = [2, 4, 7, 10, 14, 20, 25, 28, 35, 50, 70]
-assert(all([700/rate == 700//rate for rate in POSSIBLE_SAMPLE_RATES]))
-DIVISORS = {rate: 700//rate for rate in POSSIBLE_SAMPLE_RATES}
-AVG_DOWNSAMPLE = 'avg'
-POINT_DOWNSAMPLE = 'point'
-
-## MODIFY THESE. All window sizes in seconds
 OUT_FILE = '/work/hlg16/WESAD.csv'
 WESAD_FOLDER = '../../WESAD/WESAD/'
-subject_ids = [4] # [k for k in range(2, 18) if k != 12]
+subject_ids = [4] # [k for k in range(2, 18) if k != 12] FIXME replace with commented list to do all subjects
 BASIC_WINDOW_SIZE = 60
-WINDOW_SIZES = {
-  ECG: BASIC_WINDOW_SIZE,
-  BVP: BASIC_WINDOW_SIZE,
-  EDA: BASIC_WINDOW_SIZE,
-  EMG: BASIC_WINDOW_SIZE,
-  RESP: BASIC_WINDOW_SIZE,
-  TEMP: BASIC_WINDOW_SIZE,
-  ACC: 5,
+MEASUREMENTS = {
+  ECG: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, nk.ecg_process, get_ecg_features, has_chest_data=True),
+  BVP: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, nk.ppg_process, get_bvp_features, wrist_rate=64),
+  EDA: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, standardized_eda_process, get_eda_features, has_chest_data=True, wrist_rate=4),
+  # EMG: Measurement(BASIC_WINDOW_SIZE, my_emg_process, get_emg_features, has_chest_data=True), FIXME uncomment
+  RESP: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, nk.rsp_process, get_resp_features, has_chest_data=True),
+  TEMP: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, no_process, get_temp_features, has_chest_data=True, wrist_rate=4),
+  ACC: Measurement(5, no_baseline_info, no_process, get_acc_features, has_chest_data=True, wrist_rate=4)
 }
-MAX_SIZE = max(WINDOW_SIZES.values())
-SKIP_LENGTH = MAX_SIZE # seconds to skip between observation
+SKIP_LENGTH = 1 # seconds to skip between observation
+############################
 
-# don't use this
-DOWNSAMPLING_INFO = {
-  ECG: (28, POINT_DOWNSAMPLE), # FIXME?
-  BVP: (28, POINT_DOWNSAMPLE), # FIXME doesn't go into 64,
-  EDA: (7, AVG_DOWNSAMPLE), # FIXME?
-  EMG: (7, POINT_DOWNSAMPLE), # FIXME?
-  RESP: (7, POINT_DOWNSAMPLE),
-  TEMP: (4, AVG_DOWNSAMPLE),
-  ACC: (7, POINT_DOWNSAMPLE),
-}
-
-def downsample(values, length_at_700_hz, sampling):
-  new_rate, kind = sampling
-  divisor = DIVISORS[new_rate]
-  new_length = length_at_700_hz // divisor 
-  if new_length == len(values):
-    return values
-  if kind == POINT_DOWNSAMPLE:
-    return values[::divisor]
-  if kind == AVG_DOWNSAMPLE:
-    return [np.mean(values[k*divisor:((k+1)*divisor)]) for k in range(new_length)]
-  raise ValueError('Unknown downsampling kind')
-
-## CREATING THE CSV
+BASELINE_LABEL = 1
+AMUSEMENT_LABEL = 3
+STRESS_LABEL = 2
+MAX_SIZE = max([m.window_size for m in MEASUREMENTS.values()])
 filenames = [WESAD_FOLDER + 'S{}/S{}.pkl'.format(k, k) for k in subject_ids]
 all_subjects = None
-for filename in filenames:
-  # logistics for loading data
-  data = pd.read_pickle(filename)
-  print('loaded data for ' + filename)
-  labels = data['label']
-  chest = data['signal']['chest']
-  chest[TEMP] = chest['Temp']
-  wrist = data['signal']['wrist']
-  for m in wrist_measurements:
-    if m != ACC:
-      wrist[m] = wrist[m].reshape(-1)
-  for m in chest_measurements:
-    if m != ACC:
-      wrist[m] = chest[m].reshape(-1)
 
-  # creating a DataFrame for the subject
-  df = pd.DataFrame()
-  length_at_700_hz = len(data['label'])
-  total_time = length_at_700_hz / 700
+# FIXME uncomment for loop and INDENT REST
+filename = './S11.pkl'
+# for filename in filenames: 
+# logistics for loading data
+data = pd.read_pickle(filename)
+print('loaded data for ' + filename)
+chest = data['signal']['chest']
+chest[TEMP] = chest['Temp']
+chest[RESP] = chest['Resp']
+wrist = data['signal']['wrist']
+
+label = -1
+changes = []
+for k in range(len(data['label'])):
+  curr_label = data['label'][k]
+  if curr_label != label:
+    changes.append((k, curr_label))
+  label = curr_label
+    
+def get_times(target_label):
+  end = len(data['label'])
+  for j, index_label in enumerate(changes):
+    if index_label[1] == target_label:
+      break
+  start = int(math.ceil(changes[j][0] / 700))
+  end = int(math.floor(changes[j+1][0] / 700)) # if j+1 < len(changes) else int(len(data['label']) / 700)
+  return start, end
+
+baseline_times = get_times(BASELINE_LABEL)
+amusement_times = get_times(AMUSEMENT_LABEL)
+stress_times = get_times(STRESS_LABEL)
+
+print('baseline times: {}'.format(baseline_times))
+print('amusement times: {}'.format(amusement_times))
+print('stress times: {}'.format(stress_times))
+
+for name, measurement in MEASUREMENTS.items():
+    if measurement.has_wrist_data:
+      print('processing raw {} wrist data'.format(name))
+      measurement.process_raw(wrist[name], True, baseline_times, amusement_times, stress_times)
+    if measurement.has_chest_data:
+      print('processing raw {} chest data'.format(name))
+      measurement.process_raw(chest[name], False, baseline_times, amusement_times, stress_times)
+
+# creating a DataFrame for the subject
+df = pd.DataFrame()
+def update_df(for_amusement):
+  start, end = amusement_times if for_amusement else stress_times
   time = MAX_SIZE
-  count = 0
-  approx_final_count = total_time // SKIP_LENGTH
-  while time < total_time:
-    count += 1
-    if count % (approx_final_count // 10)  == 0:
-      print('added {} out of about {} rows so far'.format(count, approx_final_count))
-    # make sure all observations in this time frame are the same label
-    end_chest_index = 700 * time - 1
-    similar = 0
-    for k in range(700 * MAX_SIZE):
-      k = end_chest_index - k
-      if labels[end_chest_index] != labels[k]:
-        break
-      similar += 1
-    if similar != 700 * MAX_SIZE:
-      good_time = math.ceil(similar / 700)
-      time += MAX_SIZE - good_time
-      print('labels are not consistent. Skipping ahead with similar count of {} and good time of {}'.format(similar, good_time))
-      continue
-
-    # compute features
-    def get_signal(name, is_wrist):
-      signal_data = chest; sample_rate = 700
-      if is_wrist:
-        sample_rate = WRIST_SAMPLE_RATES[name]
-        signal_data = wrist
-      size = WINDOW_SIZES[name]
-      end = sample_rate * time
-      start = sample_rate * (time - size)
-      return signal_data[name][start:end]
-    
-    chest_signals = {measurement: get_signal(measurement, False) for measurement in chest_measurements}
-    wrist_signals = {measurement: get_signal(measurement, True) for measurement in wrist_measurements}
-    
-    new_row = {'subject_id': data['subject']}
-    new_row.update(get_signal_features(chest_signals, wrist_signals))
+  while time <= end - start:
+    features = {'subject_id': data['subject'], 'affect': 'amusement' if for_amusement else 'stress'}
+    for measurement in MEASUREMENTS.values():
+      features.update(measurement.get_features(time, for_amusement))
+    print('finished getting features for time {}'.format(time)) # FIXME add a mod thing
     df.append(new_row, ignore_index=True)
     time += SKIP_LENGTH
 
+update_df(True)
+update_df(False)
 
-  if all_subjects is None:
-    all_subjects = df
-  else:
-    all_subjects.append(df)
-  print()
+if all_subjects is None:
+  all_subjects = df
+else:
+  all_subjects.append(df)
+print()
 
-all_subjects.to_csv(OUT_FILE)
+# FIXME INDENT ABOVE
+
+# all_subjects.to_csv(OUT_FILE) FIXME uncomment
