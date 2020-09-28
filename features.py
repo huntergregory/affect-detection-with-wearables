@@ -146,7 +146,7 @@ def get_ecg_features(ecg, for_wrist, baseline_info, sampling_rate):
   return features
 
 def get_bvp_features(bvp, for_wrist, baseline_info, sampling_rate):
-  features = get_all(bvp.PPG_Rate, make_name('BVP_HR', for_wrist), [get_mean, get_std]])
+  features = get_all(bvp.PPG_Rate, make_name('BVP_HR', for_wrist), [get_mean, get_std])
   features.update(get_hrv_features(bvp.PPG_Peaks, make_name('BVP_', for_wrist), sampling_rate))
   return features
 
