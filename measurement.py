@@ -1,18 +1,19 @@
+import numpy as np
 import pandas as pd
 
-
 class Measurement:
-  def __init__(self, window_size, baseline_info_function, process_function, feature_getter, has_chest_data=False, wrist_rate=None):
+  def __init__(self, window_size, baseline_info_function, process_function, feature_getter, has_chest_data=False, wrist_rate=None, wrist_upscale=None):
     self.window_size = window_size
     self.baseline_info_function = baseline_info_function
-    self.process_function = process_function
+    self.process_function = lambda signal, rate: process_function(signal, rate)[0] # get the df but leave behind the info
     self.feature_getter = feature_getter
     self.has_chest_data = has_chest_data
     self.has_wrist_data = wrist_rate is not None
     if not self.has_wrist_data and not self.has_chest_data:
         raise ValueError('You must set a chest sample rate, wrist sample rate, or both')
     if self.has_wrist_data:
-      self.wrist_rate = wrist_rate
+      self.wrist_rate = wrist_rate if wrist_upscale is None else wrist_rate * wrist_upscale
+      self.wrist_upscale = wrist_upscale
       self.wrist_baseline_info = None
       self.wrist_amusement = None
       self.wrist_stress = None
@@ -25,6 +26,8 @@ class Measurement:
     self._assert_has_data(for_wrist)
     if raw.shape[1] == 1:
       raw = raw.reshape(-1)
+    if for_wrist and self.wrist_upscale is not None:
+      raw = np.interp(np.arange(0, len(raw), 1/self.wrist_upscale), range(len(raw)), raw)
 
     def get_signals(rate):
       def segment(times):
@@ -42,6 +45,7 @@ class Measurement:
   def get_features(self, time, for_amusement):
     def get(for_wrist):
       sample_rate = self.wrist_rate if for_wrist else 700
+      baseline_info = self.wrist_baseline_info if for_wrist else self.chest_baseline_info
       if for_wrist:
         signals = self.wrist_amusement if for_amusement else self.wrist_stress
       else:
@@ -49,9 +53,12 @@ class Measurement:
 
       end = sample_rate * time
       start = sample_rate * (time - self.window_size)
-      window = signals.iloc[start:end] if type(signals) is pd.DataFrame else signals[start:end]
-      feature_getter = FEATURE_GETTERS[name]
-      return feature_getter(window, sample_rate)
+      if type(signals) is not pd.DataFrame:
+        window = signals[start:end]
+      else:
+        window = signals.iloc[start:end]
+        window = window.reset_index(drop=True)
+      return self.feature_getter(window, baseline_info, sample_rate)
 
     features = {}
     if self.has_wrist_data:

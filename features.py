@@ -22,19 +22,15 @@ def create_getter(func, func_name):
   def getter(signal, name, axis=None):
     axis_names = {0: 'x', 1: 'y', 2: 'z'}
     if axis is None:
-      value = func(signal)
-      name = '{}_{}'.format(name, func_name)
-    else:
-      value = func(signal[:,axis])
-      axis_name = axis_names[axis] if axis in axis_names else 'axis_{}'.format(axis)
-      name = '{}_{}_{}'.format(name, axis_name, func_name)
-    return {'{}_{}'.format(name, func_name): func(signal)}
+      return {'{}_{}'.format(name, func_name): func(signal)} 
+    axis_name = axis_names[axis] if axis in axis_names else 'axis_{}'.format(axis)
+    return {'{}_{}_{}'.format(name, axis_name, func_name): func(signal[:,axis])}
   return getter
 
 get_mean = create_getter(np.mean, 'mean')
 get_std = create_getter(np.mean, 'std')
 get_min = create_getter(np.min, 'min')
-get_min = create_getter(np.max, 'max')
+get_max = create_getter(np.max, 'max')
 get_rms = create_getter(lambda s: np.sqrt(np.mean(s**2)), 'root_mean_square')
 get_slope = create_getter(lambda s: (s[-1] - s[0]) / 100, 'slope') # NOTE assuming 100 second window
 # get_dynamic_range = create_getter(lambda s: np.log10(np.max(s) / np.min(s)), 'dynamic_range') TODO (maybe don't log?)
@@ -61,10 +57,9 @@ def get_acc_features(raw_acc, baseline_info, sampling_rate):
   acc_features.update(get_all(acc_magnitudes, ACC + '_magnitude', [get_mean, get_std, get_absolute_integral]))
   return acc_features
 
-# eda, _ = standardized_eda_process(eda_signal, rate)
 def get_eda_features(eda, baseline_info, sampling_rate): # df with columns EDA_Standardized, EDA_Tonic (SCL), EDA_Phasic (SCR), 
   eda_getters = [get_mean, get_std, get_min, get_max, get_slope,] #get_dynamic_range] FIXME include?
-  eda_features = get_all(eda.EDA_Standardized, EDA, eda_getters)
+  eda_features = get_all(eda.EDA_Standardized.to_numpy(), EDA, eda_getters)
   eda_features.update(get_all(eda.EDA_Tonic, SCL, [get_mean, get_std]))
   eda_features.update(get_all(eda.EDA_Phasic, SCR, [get_std])) # FIXME include mean??
   eda_features[SCR + '_num_segments'] = sum(eda.SCR_Onsets)
@@ -72,11 +67,11 @@ def get_eda_features(eda, baseline_info, sampling_rate): # df with columns EDA_S
   peaks = eda[eda.SCR_Peaks == 1.0]
   eda_features[SCR + '_sum_startle_magnitudes'] = sum(peaks.SCR_Amplitude)
   eda_features[SCR + '_sum_response_durations'] = sum(peaks.SCR_RiseTime)
-  eda_features[SCR + '_response_area'] = sum([relative_integral(eda.EDA_Phasic, onset, peak, sampling_rate) for onset, peak in zip(onsets.index, peaks.index)])
+  peak_start_index = 1 if peaks.index[0] < onsets.index[0] else 0
+  eda_features[SCR + '_response_area'] = sum([relative_integral(eda.EDA_Phasic, onset, peak, sampling_rate) for onset, peak in zip(onsets.index, peaks.index[peak_start_index:])])
   eda_features[SCL + '_time_correlation'] = scipy.stats.pearsonr(eda.EDA_Tonic, eda.index)[0]
   return eda_features
 
-# resp, _ = nk.rsp_process(raw_resp, sampling_rate=rate)
 def get_resp_features(resp, baseline_info, sampling_rate):
   peaks = list(resp.index[resp.RSP_Peaks == 1]) # could also intersect info with current indices
   troughs = list(resp.index[resp.RSP_Troughs == 1])
@@ -84,16 +79,20 @@ def get_resp_features(resp, baseline_info, sampling_rate):
   end = resp.index[-1]
   start_inhaling = troughs[0] > peaks[0]
   end_inhaling = troughs[-1] > peaks[-1]
-  inhale_zip = lambda: zip(peaks + [end] if end_inhaling else peaks, [start] + troughs if start_inhaling else troughs)
-  exhale_zip = lambda: zip(peaks if start_inhaling else [start] + peaks, troughs if end_inhaling else troughs + [end])
-  inhale_durations = [(peak - trough) / sampling_rate for peak, trough in inhale_zip()]
-  exhale_durations = [(trough - peak) / sampling_rate for peak, trough in exhale_zip()]
-  volume = sum([relative_integral(resp.RSP_Clean, trough, peak, sampling_rate) for peak, trough in inhale_zip()])
-  
+
+  inhale_zip = zip(peaks[1:] if start_inhaling else peaks, troughs)
+  inhale_durations = [(peak - trough) / sampling_rate for peak, trough in inhale_zip]
+
+  exhale_zip = zip(peaks, troughs[1:] if start_inhaling else troughs)
+  exhale_durations = [(trough - peak) / sampling_rate for peak, trough in exhale_zip]
+
+  inhale_volume_zip = zip(peaks + [end] if end_inhaling else peaks, [start] + troughs if start_inhaling else troughs)
+  volume = sum([relative_integral(resp.RSP_Clean, trough, peak, sampling_rate) for peak, trough in inhale_volume_zip if peak - trough > 3]) 
+
   features = get_all(inhale_durations, RESP + '_inhale', [get_mean, get_std])
-  features.update(get_all(inhale_durations, RESP + '_exhale', [get_mean, get_std]))
+  features.update(get_all(exhale_durations, RESP + '_exhale', [get_mean, get_std]))
   features[RESP + '_inhale_exhale_ratio'] = sum(inhale_durations) / sum(exhale_durations)
-  features[RESP + '_volume'] = volume
+  features[RESP + '_volume'] = volume / 60 # FIXME change if window size isn't 60 seconds
   features[RESP + '_breath_rate'] = resp.RSP_Rate.iloc[-1]
   # TODO stretch and resp duration?
   return features
@@ -127,27 +126,16 @@ def get_hrv_features(peaks, sampling_rate):
   hrv = hrv.rename(columns=renamings, errors='raise')
   return {col: val for col, val in zip(hrv.columns, hrv.to_numpy()[0])}
 
-# ecg, _ = nk.ecg_process(ecg, sampling_rate=rate)
 def get_ecg_features(ecg, baseline_info, sampling_rate):
   features = get_all(ecg.ECG_Rate, ECG, [])
-  features.update(get_hrv_features(ecg.ECG_R_Peaks))
+  features.update(get_hrv_features(ecg.ECG_R_Peaks, sampling_rate))
   return features
 
-# bvp, _ = nk.ppg_process(bvp, sampling_rate=rate)
 def get_bvp_features(bvp, baseline_info, sampling_rate):
-  features = get_all(bvp.BVP_Rate, BVP, [])
-  features.update(get_hrv_features(bvp.PPG_Peaks))
+  features = get_all(bvp.PPG_Rate, BVP, [])
+  features.update(get_hrv_features(bvp.PPG_Peaks, sampling_rate))
   return features
 
 ## IN PROCESSS features
 def get_emg_features(emg, baseline_info, sampling_rate):
   pass # TODO
-
-## OLD STUFF
-# make sure these are the same as in the pickle_to_csv.py
-
-def get_signal_features(chest_sigs_and_rates, wrist_sigs_and_rates):
-  result = {name: np.max(sig_and_rate[0]) for name, sig_and_rate in chest_sigs_and_rates.items()}
-  result.update({name: np.max(sig_and_rate[0]) for name, sig_and_rate in wrist_sigs_and_rates.items()})
-  return result
-  # FIXME calculate real features for all signals
