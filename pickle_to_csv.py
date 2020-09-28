@@ -46,7 +46,7 @@ MEASUREMENTS = {
   # EMG: Measurement(BASIC_WINDOW_SIZE, my_emg_process, get_emg_features, has_chest_data=True), FIXME uncomment
   RESP: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, nk.rsp_process, get_resp_features, has_chest_data=True),
   TEMP: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, no_process, get_temp_features, has_chest_data=True, wrist_rate=4),
-  ACC: Measurement(5, no_baseline_info, no_process, get_acc_features, has_chest_data=True, wrist_rate=4)
+  ACC: Measurement(5, no_baseline_info, no_process, get_acc_features, has_chest_data=True, wrist_rate=32)
 }
 SKIP_LENGTH = 1 # seconds to skip between observation
 ############################
