@@ -105,8 +105,6 @@ for filename in filenames:
     start, end = amusement_times if for_amusement else stress_times
     time = MAX_SIZE
     while time <= end - start:
-      if time % (end - start) // 10 == 0:
-        print('getting features for time {}'.format(time))
       new_row = {'subject_id': data['subject'], 'affect': 'amusement' if for_amusement else 'stress'}
       for measurement in MEASUREMENTS.values():
         new_row.update(measurement.get_features(time, for_amusement))
@@ -115,6 +113,9 @@ for filename in filenames:
       time += SKIP_LENGTH
 
   update_df(True)
+  print('new df columns: ', df.columns)
+  for col in df.columns:
+    print(df[col].head())
   update_df(False)
 
   if all_subjects is None:
