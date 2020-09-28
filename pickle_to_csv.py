@@ -57,6 +57,7 @@ MAX_SIZE = max([m.window_size for m in MEASUREMENTS.values()])
 filenames = [WESAD_FOLDER + 'S{}/S{}.pkl'.format(k, k) for k in subject_ids]
 all_subjects = None
 
+filenames = ['./S11.pkl']  # FIXME remove
 for filename in filenames: 
   data = pd.read_pickle(filename)
   print('loaded data for ' + filename)
