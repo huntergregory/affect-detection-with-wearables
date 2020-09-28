@@ -36,7 +36,7 @@ BVP = 'BVP'
 OUT_FILE = '/work/hlg16/WESAD.csv'
 WESAD_FOLDER = '../../WESAD/WESAD/'
 subject_ids = [k for k in range(2, 18) if k != 12]
-BASIC_WINDOW_SIZE = 60
+BASIC_WINDOW_SIZE = 60 # a couple dependencies on this in features.py
 EDA_UPSCALE_FACTOR = 2
 MEASUREMENTS = {
   ECG: Measurement(BASIC_WINDOW_SIZE, no_baseline_info, nk.ecg_process, get_ecg_features, has_chest_data=True),

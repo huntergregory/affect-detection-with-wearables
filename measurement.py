@@ -58,7 +58,7 @@ class Measurement:
       else:
         window = signals.iloc[start:end]
         window = window.reset_index(drop=True)
-      return self.feature_getter(window, baseline_info, sample_rate)
+      return self.feature_getter(window, for_wrist, baseline_info, sample_rate)
 
     features = {}
     if self.has_wrist_data:
