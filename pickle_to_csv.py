@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import math
+from datetime import datetime
 import neurokit2 as nk
 from measurement import Measurement
 from features import get_temp_features, get_acc_features, get_eda_features, get_resp_features, get_emg_features, get_ecg_features, get_bvp_features
@@ -57,9 +58,8 @@ MAX_SIZE = max([m.window_size for m in MEASUREMENTS.values()])
 filenames = [WESAD_FOLDER + 'S{}/S{}.pkl'.format(k, k) for k in subject_ids]
 all_subjects = None
 
-filenames = ['../../WESAD/WESAD/S11/S11.pkl']  # FIXME remove
 first_file = True
-for filename in filenames: 
+for filename in reversed(filenames): 
   data = pd.read_pickle(filename)
   print('loaded data for ' + filename)
   chest = data['signal']['chest']
@@ -94,11 +94,12 @@ for filename in filenames:
 
   for name, measurement in MEASUREMENTS.items():
       if measurement.has_wrist_data:
-        print('processing raw {} wrist data'.format(name))
+        print('processing raw {} wrist data at {}'.format(name, datetime.now()))
         measurement.process_raw(wrist[name], True, baseline_times, amusement_times, stress_times)
       if measurement.has_chest_data:
-        print('processing raw {} chest data'.format(name))
-        measurement.process_raw(chest[name], False, baseline_times, amusement_times, stress_times)
+        print('processing raw {} chest data at {}'.format(name, datetime.now()))
+        flag = name == ECG and data['subject'] == 'S11'
+        measurement.process_raw(chest[name], False, baseline_times, amusement_times, stress_times, flag=flag)
 
   # make a DataFrame for the subject
   df = pd.DataFrame()
@@ -130,6 +131,7 @@ for filename in filenames:
 
 print('final df info')
 print('len: ', len(all_subjects))
-print('columns: ', all_subjects.columns)
-print(all_subjects.describe())
+print('columns: ')
+for col in all_subjects.columns:
+  print(col)
 all_subjects.to_csv(OUT_FILE)
