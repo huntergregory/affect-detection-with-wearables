@@ -57,21 +57,31 @@ def get_acc_features(raw_acc, baseline_info, sampling_rate):
   acc_features.update(get_all(acc_magnitudes, ACC + '_magnitude', [get_mean, get_std, get_absolute_integral]))
   return acc_features
 
+ # protected against no peaks
 def get_eda_features(eda, baseline_info, sampling_rate): # df with columns EDA_Standardized, EDA_Tonic (SCL), EDA_Phasic (SCR), 
   eda_getters = [get_mean, get_std, get_min, get_max, get_slope,] #get_dynamic_range] FIXME include?
   eda_features = get_all(eda.EDA_Standardized.to_numpy(), EDA, eda_getters)
   eda_features.update(get_all(eda.EDA_Tonic, SCL, [get_mean, get_std]))
   eda_features.update(get_all(eda.EDA_Phasic, SCR, [get_std])) # FIXME include mean??
-  eda_features[SCR + '_num_segments'] = sum(eda.SCR_Onsets)
+  eda_features[SCL + '_time_correlation'] = scipy.stats.pearsonr(eda.EDA_Tonic, eda.index)[0]
+
+  num_onsets = sum(eda.SCR_Onsets)
+  num_peaks = sum(eda.SCR_Peaks)
   onsets = eda[eda.SCR_Onsets == 1.0]
   peaks = eda[eda.SCR_Peaks == 1.0]
-  eda_features[SCR + '_sum_startle_magnitudes'] = sum(peaks.SCR_Amplitude)
-  eda_features[SCR + '_sum_response_durations'] = sum(peaks.SCR_RiseTime)
-  peak_start_index = 1 if peaks.index[0] < onsets.index[0] else 0
-  eda_features[SCR + '_response_area'] = sum([relative_integral(eda.EDA_Phasic, onset, peak, sampling_rate) for onset, peak in zip(onsets.index, peaks.index[peak_start_index:])])
-  eda_features[SCL + '_time_correlation'] = scipy.stats.pearsonr(eda.EDA_Tonic, eda.index)[0]
+  if num_onsets == 0 or num_peaks == 0 or num_peaks == 1 and peaks.index[0] < onsets.index[0]:
+    for name in ['num_segments', 'sum_startle_magnitudes', 'sum_response_durations', 'response_area']:
+      eda_features['{}_{}'.format(SCR, name)] = 0
+  else:
+    eda_features[SCR + '_num_segments'] = num_onsets
+    if eda_features[SCR + '_num_segments'] == 0
+    eda_features[SCR + '_sum_startle_magnitudes'] = sum(peaks.SCR_Amplitude)
+    eda_features[SCR + '_sum_response_durations'] = sum(peaks.SCR_RiseTime)
+    peak_start_index = 1 if peaks.index[0] < onsets.index[0] else 0
+    eda_features[SCR + '_response_area'] = sum([relative_integral(eda.EDA_Phasic, onset, peak, sampling_rate) for onset, peak in zip(onsets.index, peaks.index[peak_start_index:])])
   return eda_features
 
+ # NOT protected against no peaks
 def get_resp_features(resp, baseline_info, sampling_rate):
   peaks = list(resp.index[resp.RSP_Peaks == 1]) # could also intersect info with current indices
   troughs = list(resp.index[resp.RSP_Troughs == 1])
