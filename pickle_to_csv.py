@@ -58,6 +58,7 @@ filenames = [WESAD_FOLDER + 'S{}/S{}.pkl'.format(k, k) for k in subject_ids]
 all_subjects = None
 
 filenames = ['../../WESAD/WESAD/S11/S11.pkl']  # FIXME remove
+first_file = True
 for filename in filenames: 
   data = pd.read_pickle(filename)
   print('loaded data for ' + filename)
@@ -113,9 +114,12 @@ for filename in filenames:
       time += SKIP_LENGTH
 
   update_df(True)
-  print('new df columns: ', df.columns)
-  for col in df.columns:
-    print(df[col].head())
+  if first_file:
+    print('new df columns: ', df.columns)
+    for col in df.columns:
+      print(df[col].head())
+      print(df[col].tail())
+    first_file = False
   update_df(False)
 
   if all_subjects is None:
