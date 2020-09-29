@@ -1,0 +1,285 @@
+---
+title: "WESAD"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(broom)
+library(tidyverse)
+library(dplyr)
+library(knitr)
+library(tibble)
+library(pROC) #ROC curves
+#library(arm) #binned residuals
+library(questionr) #odds ratio function
+#library(car)
+#library(InformationValue)
+```
+
+```{r remove-col}
+
+## remove unecessary columns 
+data = WESAD_one_sec_shift
+bad_columns = c('X1', 
+                'wrist_BVP_HRV_low_high_freq_ratio', 'chest_ECG_HRV_low_high_freq_ratio',
+                'wrist_BVP_HRV_low_freq_normalized', 'chest_ECG_HRV_low_freq_normalized', 
+                'wrist_BVP_HRV_low_freq','chest_ECG_HRV_low_freq', 
+                'wrist_BVP_HRV_ultra_low_freq', 'chest_ECG_HRV_ultra_low_freq')
+data = data[!names(data) %in% bad_columns]
+is_wrist_column = function(column) { substr(column, 1, 6) == 'wrist_' }
+is_chest_column = function(column) { substr(column, 1, 6) == 'chest_' }
+create_is_sensor_column = function(sensor) { 
+  function(column) {
+    length(column) > 6 & substr(column, 7, 7+nchar(sensor)-1) == sensor
+  }
+}
+get_columns = function(sensor) { 
+  is_sensor_column = create_is_sensor_column(sensor)
+  is_sensor_column(colnames(data))
+}
+# remove acceleration components
+get_ACC_component_cols = function(component) {
+  get_columns(paste('ACC', component, sep='_'))
+}
+data = data[!get_ACC_component_cols('x')]
+data = data[!get_ACC_component_cols('y')]
+data = data[!get_ACC_component_cols('z')]
+
+##data <- data %>%
+  #mutate(affect = case_when(affect == "amusement" ~ 0, 
+ #                           affect == "stress" ~ 1))
+
+
+```
+
+
+```{r }
+## create data frame of just numeric variables to be used for correlation matrix
+num_data = data
+word_cols = c('affect', 'subject_id')
+num_data<-num_data[,!names(num_data) %in% word_cols]
+num_data
+
+
+## calculate summary statistics and missing data analysis 
+## chest_SCR_sum_response_durations and chest_SCR_sum_startle_magnitudes have 6 missing values, less than 0.01%
+## wrist_SCR_sum_response_durations and wrist_SCR_sum_startle_magnitudes have 4 missing values, less than 0.01%
+library(finalfit)
+data%>%
+  ff_glimpse()
+
+
+# list rows of data that have missing values
+num_data[!complete.cases(num_data),]
+
+## only 8 observations so we removed them 
+newdata <- na.omit(num_data)
+
+##compute correlation matrix
+cor_all<- round(cor(newdata, method = "pearson"),2)
+cor_all
+
+##make correlation matrix into table
+## 239 with freq > 0.5
+## 207 with freq > 0.6
+## 193 with freq > 0.7
+## 165 with freq > 0.8
+## 145 with freq > 0.9
+## 127 with 1.0, subtract 69 because cols are completely correlated with themselves = 58, divide by 2 because of symmetry = 29
+## 2,147 total
+cor_df <- as.data.frame(as.table(cor_all))%>%
+  arrange(desc(Freq)) %>% filter(Freq == 1.0)
+
+cor_df
+```
+
+
+
+```{r wrist data }
+is_wrist_column = function(column) { substr(column, 1, 6) == 'wrist_' }
+is_chest_column = function(column) { substr(column, 1, 6) == 'chest_' }
+create_is_sensor_column = function(sensor) { 
+  function(column) {
+    length(column) > 6 & substr(column, 7, 7+nchar(sensor)-1) == sensor
+  }
+}
+is_EDA_column = create_is_sensor_column('EDA')
+is_ACC_column = create_is_sensor_column('ACC')
+is_TEMP_column = create_is_sensor_column('TEMP')
+is_ECG_column = create_is_sensor_column('ECG')
+is_BVP_column = create_is_sensor_column('BVP')
+is_RESP_column = create_is_sensor_column('RESP')
+wrist_columns = is_wrist_column(colnames(data))
+chest_columns = is_chest_column(colnames(data))
+
+
+
+wrist <-data[is_EDA_column(wrist_columns)]
+
+wrist
+```
+
+```{r boxplots}
+## select all vars with means
+colnames(data)[grepl('mean', colnames(data))]
+
+
+## Chest Heart Rate Variability 
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_mean)) + geom_boxplot()
+
+## Chest Acceration Magnitude
+## very little difference, very little variance
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_mean)) + geom_boxplot()
+
+## Chest Heart Rate 
+ggplot(data, aes(x=affect, y=chest_ECG_HR_mean)) + geom_boxplot()
+
+## Chest EDA 
+## pretty similary distributions
+ggplot(data, aes(x=affect, y=chest_EDA_mean)) + geom_boxplot()
+
+## Chest Respiration Exhale 
+## exhale and inhale are the same
+ggplot(data, aes(x=affect, y=chest_RESP_exhale_mean)) + geom_boxplot()
+
+## Chest Respiration Inhale 
+ggplot(data, aes(x=affect, y=chest_RESP_exhale_mean)) + geom_boxplot()
+
+## Chest Respiration Breath Rate
+ggplot(data, aes(x=affect, y=chest_RESP_breath_rate)) + geom_boxplot()
+
+## Chest Respiration Breath Volume
+ggplot(data, aes(x=affect, y=chest_RESP_volume)) + geom_boxplot()
+
+## Chest SCL 
+## very similar distributions
+ggplot(data, aes(x=affect, y=chest_SCL_mean)) + geom_boxplot()
+
+## Chest Temperature 
+ggplot(data, aes(x=affect, y=chest_TEMP_mean)) + geom_boxplot()
+
+## Wrist Acceleration Magnitude 
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_mean)) + geom_boxplot()
+
+## Wrist Blood Volume Pulse HRV 
+## very similar 
+ggplot(data, aes(x=affect, y=wrist_BVP_HRV_mean)) + geom_boxplot()
+
+## Wrist Blood Volume Pulse HR 
+ggplot(data, aes(x=affect, y=wrist_BVP_HR_mean)) + geom_boxplot()
+
+## Wrist EDA 
+## very similar, but stress has more variance
+ggplot(data, aes(x=affect, y=wrist_EDA_mean)) + geom_boxplot()
+
+## Wrist SCL 
+## same as wrist eda
+ggplot(data, aes(x=affect, y=wrist_SCL_mean)) + geom_boxplot()
+
+## Wrist Temperature 
+ggplot(data, aes(x=affect, y=wrist_TEMP_mean)) + geom_boxplot()
+
+
+
+```
+
+```{r}
+## select all vars with ACC
+colnames(data)[grepl('ACC', colnames(data))]
+
+
+## Chest Acceration Magnitude Mean
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_mean)) + geom_boxplot()
+
+## Wrist Acceration Magnitude Mean
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_mean)) + geom_boxplot()
+
+## Chest Acceration Magnitude std.
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_std)) + geom_boxplot()
+
+##Wrist Acceration Magnitude std.
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_std)) + geom_boxplot()
+
+## Chest Acceration Magnitude absolute integral
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_absolute_integral)) + geom_boxplot()
+       
+## Wrist Acceration Magnitude absolute integral
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_absolute_integral)) + geom_boxplot()
+```
+
+
+
+```{r}
+## select all vars with HR
+## ecg hrv mean is very good predictor so is % large intervals but they are very correlated 
+colnames(data)[grepl('HRV', colnames(data))]
+
+## Chest ecg HRV Mean
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_mean)) + geom_boxplot()
+
+## Chest ecg HRV rms
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_rms)) + geom_boxplot()
+
+## Chest ecg HRV tinn
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_tinn)) + geom_boxplot()
+
+## Chest ecg HRV std
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_std)) + geom_boxplot()
+
+## Chest ecg HRV percent large intervals
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_percent_large_intervals)) + geom_boxplot()
+
+
+## Wrist BVP HRV mean
+ggplot(data, aes(x=affect, y=wrist_BVP_HRV_mean)) + geom_boxplot()
+
+
+```
+
+
+
+```{r}
+## select all vars with temp
+## min are all similar, slope is not helpful, std max and mean are all similarly helpful so we choose mean
+colnames(data)[grepl('TEMP', colnames(data))]
+
+## Chest Temp Max
+ggplot(data, aes(x=affect, y=chest_TEMP_max)) + geom_boxplot()
+
+## Chest Temp Mean
+ggplot(data, aes(x=affect, y=chest_TEMP_mean)) + geom_boxplot()
+
+## Chest Temp Min
+ggplot(data, aes(x=affect, y=chest_TEMP_min)) + geom_boxplot()
+
+## Chest Temp Slope
+ggplot(data, aes(x=affect, y=chest_TEMP_slope)) + geom_boxplot()
+
+## Chest Temp STD
+ggplot(data, aes(x=affect, y=chest_TEMP_std)) + geom_boxplot()
+
+
+```
+
+```{r}
+data_for_model = WESAD_one_sec_shift
+good_columns = c('affect', 'subject_id', 'chest_EDA_slope', 
+                'wrist_EDA_slope', 'chest_RESP_breath_rate',
+                'chest_RESP_volume', 'chest_SCR_num_segments', 'wrist_SCR_num_segments',
+               'chest_ACC_magnitude_mean', 'wrist_ACC_magnitude_mean', 'chest_TEMP_mean', 'wrist_TEMP_mean', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean')
+
+
+data_for_model = data_for_model[names(data_for_model) %in% good_columns]
+
+
+data_for_model
+
+```
+
