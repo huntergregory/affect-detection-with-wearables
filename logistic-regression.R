@@ -20,18 +20,20 @@ contrasts(factor(final_data$affect))
 percent_train = 0.8
 train = data.frame()
 test = data.frame()
-id = 'S2'
 for (id in unique(final_data$subject_id)) {
   subject_df =  final_data[final_data$subject_id == id,]
   train_indices = sample(nrow(subject_df), floor(percent_train * nrow(subject_df)))
   train = rbind(train, subject_df[train_indices,])
   test = rbind(test, subject_df[-train_indices,])
 }
-train_X = test[names(test) != 'subject_id']
-test_X = test[names(test) != 'subject_id']
-
-full_logistic_model = glm(affect ~ . - subject_id, data=train_X, family="binomial", maxit=100)
+full_logistic_model = glm(affect ~ . - subject_id, data=train, family="binomial", maxit=100)
 summary(full_logistic_model)
-probabilities = predict(full_logistic_model, test_X, type='response')
+probabilities = predict(full_logistic_model, test, type='response')
+predictions = ifelse(probabilities > 0.5, 'stress', 'amusement')
+mean(predictions == test$affect) # accuracy
+
+model_with_subject_id = glm(affect ~ ., data=train, family="binomial", maxit=100)
+summary(model_with_subject_id)
+probabilities = predict(model_with_subject_id, test, type='response')
 predictions = ifelse(probabilities > 0.5, 'stress', 'amusement')
 mean(predictions == test$affect) # accuracy
