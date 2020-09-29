@@ -1,0 +1,506 @@
+---
+title: "WESAD"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r pkgtest, echo=FALSE}
+# source: https://stackoverflow.com/questions/9341635/check-for-installed-packages-before-running-install-packages
+pkgTest <- function(x)
+  {
+    if (!require(x,character.only = TRUE))
+    {
+      install.packages(x,repos = "http://cran.r-project.org",dep=TRUE)
+        if(!require(x,character.only = TRUE)) stop("Package not found")
+    }
+  }
+```
+
+```{r check package,include=FALSE}
+pkgTest("ggplot2")
+pkgTest("readr")
+pkgTest("caret")
+pkgTest("broom")
+pkgTest("tidyverse")
+pkgTest("dplyr")
+pkgTest("knitr")
+pkgTest("tibble")
+pkgTest("pROC") #ROC curves
+pkgTest("arm") #binned residuals
+pkgTest("questionr") #odds ratio function
+pkgTest("cowplot")
+pkgTest("nnet")
+pkgTest("car")
+
+#pkgTest("car")
+#pkgTest("InformationValue")
+```
+
+```{r remove-col}
+## remove unecessary columns 
+data = read.csv("WESAD-one-sec-shift.csv")
+bad_columns = c('X1', 
+                'wrist_BVP_HRV_low_high_freq_ratio', 'chest_ECG_HRV_low_high_freq_ratio',
+                'wrist_BVP_HRV_low_freq_normalized', 'chest_ECG_HRV_low_freq_normalized', 
+                'wrist_BVP_HRV_low_freq','chest_ECG_HRV_low_freq', 
+                'wrist_BVP_HRV_ultra_low_freq', 'chest_ECG_HRV_ultra_low_freq')
+data = data[!names(data) %in% bad_columns]
+is_wrist_column = function(column) { substr(column, 1, 6) == 'wrist_' }
+is_chest_column = function(column) { substr(column, 1, 6) == 'chest_' }
+create_is_sensor_column = function(sensor) { 
+  function(column) {
+    length(column) > 6 & substr(column, 7, 7+nchar(sensor)-1) == sensor
+  }
+}
+get_columns = function(sensor) { 
+  is_sensor_column = create_is_sensor_column(sensor)
+  is_sensor_column(colnames(data))
+}
+# remove acceleration components
+get_ACC_component_cols = function(component) {
+  get_columns(paste('ACC', component, sep='_'))
+}
+data = data[!get_ACC_component_cols('x')]
+data = data[!get_ACC_component_cols('y')]
+data = data[!get_ACC_component_cols('z')]
+##data <- data %>%
+  #mutate(affect = case_when(affect == "amusement" ~ 0, 
+ #                           affect == "stress" ~ 1))
+```
+
+```{r correlation check}
+## create data frame of just numeric variables to be used for correlation matrix
+num_data = data
+word_cols = c('affect', 'subject_id')
+num_data<-num_data[,!names(num_data) %in% word_cols]
+num_data
+## calculate summary statistics and missing data analysis 
+## chest_SCR_sum_response_durations and chest_SCR_sum_startle_magnitudes have 6 missing values, less than 0.01%
+## wrist_SCR_sum_response_durations and wrist_SCR_sum_startle_magnitudes have 4 missing values, less than 0.01%
+pkgTest("finalfit")
+data%>%
+  ff_glimpse()
+# list rows of data that have missing values
+num_data[!complete.cases(num_data),]
+## only 8 observations so we removed them 
+newdata <- na.omit(num_data)
+##compute correlation matrix
+cor_all<- round(cor(newdata, method = "pearson"),2)
+cor_all
+##make correlation matrix into table
+## 239 with freq > 0.5
+## 207 with freq > 0.6
+## 193 with freq > 0.7
+## 165 with freq > 0.8
+## 145 with freq > 0.9
+## 127 with 1.0, subtract 69 because cols are completely correlated with themselves = 58, divide by 2 because of symmetry = 29
+## 2,147 total
+cor_df <- as.data.frame(as.table(cor_all))%>%
+  arrange(desc(Freq)) %>% filter(abs(Freq) > 0.7)
+cor_df
+```
+
+```{r wrist data }
+is_wrist_column = function(column) { substr(column, 1, 6) == 'wrist_' }
+is_chest_column = function(column) { substr(column, 1, 6) == 'chest_' }
+create_is_sensor_column = function(sensor) { 
+  function(column) {
+    length(column) > 6 & substr(column, 7, 7+nchar(sensor)-1) == sensor
+  }
+}
+is_EDA_column = create_is_sensor_column('EDA')
+is_ACC_column = create_is_sensor_column('ACC')
+is_TEMP_column = create_is_sensor_column('TEMP')
+is_ECG_column = create_is_sensor_column('ECG')
+is_BVP_column = create_is_sensor_column('BVP')
+is_RESP_column = create_is_sensor_column('RESP')
+wrist_columns = is_wrist_column(colnames(data))
+chest_columns = is_chest_column(colnames(data))
+wrist <-data[is_EDA_column(wrist_columns)]
+```
+
+```{r boxplots all means}
+## select all vars with means
+colnames(data)[grepl('mean', colnames(data))]
+## Chest Heart Rate Variability 
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_mean)) + geom_boxplot()
+## Chest Acceration Magnitude
+## very little difference, very little variance
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_mean)) + geom_boxplot()
+## Chest Heart Rate 
+ggplot(data, aes(x=affect, y=chest_ECG_HR_mean)) + geom_boxplot()
+## Chest EDA 
+## pretty similary distributions
+ggplot(data, aes(x=affect, y=chest_EDA_mean)) + geom_boxplot()
+## Chest Respiration Exhale 
+## exhale and inhale are the same
+ggplot(data, aes(x=affect, y=chest_RESP_exhale_mean)) + geom_boxplot()
+## Chest Respiration Inhale 
+ggplot(data, aes(x=affect, y=chest_RESP_exhale_mean)) + geom_boxplot()
+## Chest Respiration Breath Rate
+ggplot(data, aes(x=affect, y=chest_RESP_breath_rate)) + geom_boxplot()
+## Chest Respiration Breath Volume
+ggplot(data, aes(x=affect, y=chest_RESP_volume)) + geom_boxplot()
+## Chest SCL 
+## very similar distributions
+ggplot(data, aes(x=affect, y=chest_SCL_mean)) + geom_boxplot()
+## Chest Temperature 
+ggplot(data, aes(x=affect, y=chest_TEMP_mean)) + geom_boxplot()
+## Wrist Acceleration Magnitude 
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_mean)) + geom_boxplot()
+## Wrist Blood Volume Pulse HRV 
+## very similar 
+ggplot(data, aes(x=affect, y=wrist_BVP_HRV_mean)) + geom_boxplot()
+## Wrist Blood Volume Pulse HR 
+ggplot(data, aes(x=affect, y=wrist_BVP_HR_mean)) + geom_boxplot()
+## Wrist EDA 
+## very similar, but stress has more variance
+ggplot(data, aes(x=affect, y=wrist_EDA_mean)) + geom_boxplot()
+## Wrist SCL 
+## same as wrist eda
+ggplot(data, aes(x=affect, y=wrist_SCL_mean)) + geom_boxplot()
+## Wrist Temperature 
+ggplot(data, aes(x=affect, y=wrist_TEMP_mean)) + geom_boxplot()
+```
+
+```{r boxplot ACC}
+## select all vars with ACC
+colnames(data)[grepl('ACC', colnames(data))]
+## Chest Acceration Magnitude Mean
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_mean)) + geom_boxplot()
+## Wrist Acceration Magnitude Mean
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_mean)) + geom_boxplot()
+## Chest Acceration Magnitude std.
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_std)) + geom_boxplot()
+##Wrist Acceration Magnitude std.
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_std)) + geom_boxplot()
+## Chest Acceration Magnitude absolute integral
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_absolute_integral)) + geom_boxplot()
+       
+## Wrist Acceration Magnitude absolute integral
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_absolute_integral)) + geom_boxplot()
+```
+
+
+
+```{r boxplot HR}
+## select all vars with HR
+## ecg hrv mean is very good predictor so is % large intervals but they are very correlated 
+colnames(data)[grepl('HRV', colnames(data))]
+## Chest ecg HRV Mean
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_mean)) + geom_boxplot()
+## Chest ecg HRV rms
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_rms)) + geom_boxplot()
+## Chest ecg HRV tinn
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_tinn)) + geom_boxplot()
+## Chest ecg HRV std
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_std)) + geom_boxplot()
+## Chest ecg HRV percent large intervals
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_percent_large_intervals)) + geom_boxplot()
+## Wrist BVP HRV mean
+ggplot(data, aes(x=affect, y=wrist_BVP_HRV_mean)) + geom_boxplot()
+```
+
+```{r boxplot temp}
+## select all vars with temp
+## min are all similar, slope is not helpful, std max and mean are all similarly helpful so we choose mean
+colnames(data)[grepl('TEMP', colnames(data))]
+## Chest Temp Max
+ggplot(data, aes(x=affect, y=chest_TEMP_max)) + geom_boxplot()
+## Chest Temp Mean
+ggplot(data, aes(x=affect, y=chest_TEMP_mean)) + geom_boxplot()
+## Chest Temp Min
+ggplot(data, aes(x=affect, y=chest_TEMP_min)) + geom_boxplot()
+## Chest Temp Slope
+ggplot(data, aes(x=affect, y=chest_TEMP_slope)) + geom_boxplot()
+## Chest Temp STD
+ggplot(data, aes(x=affect, y=chest_TEMP_std)) + geom_boxplot()
+```
+
+## Model Fitting and Validation 
+
+### Full model without Subject ID
+```{r choosing inputs}
+data_for_model = read.csv("WESAD-one-sec-shift.csv")
+good_columns = c('affect', 'subject_id', 'chest_EDA_slope', 
+                'wrist_EDA_slope', 'chest_RESP_breath_rate',
+                'chest_RESP_volume', 'chest_SCR_num_segments', 'wrist_SCR_num_segments',
+               'chest_ACC_magnitude_mean', 'wrist_ACC_magnitude_mean', 'chest_TEMP_mean', 'wrist_TEMP_mean', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean')
+data_for_model = data_for_model[names(data_for_model) %in% good_columns]
+data_for_model$affect2 <- ifelse(data_for_model$affect == 'stress', 1, 0)
+data_for_model
+```
+
+```{r create training and test data}
+set.seed(012)
+## Modeling
+percent_train = 0.8
+train = data.frame()
+test = data.frame()
+for (id in unique(data_for_model$subject_id)) {
+  subject_df =  data_for_model[data_for_model$subject_id == id,]
+  train_indices = sample(nrow(subject_df), floor(percent_train * nrow(subject_df)))
+  train = rbind(train, subject_df[train_indices,])
+  test = rbind(test, subject_df[-train_indices,])
+}
+```
+
+### Full model Without Subject ID
+
+```{r full model without subject ID}
+full_logistic_model = glm(affect2 ~ . - subject_id -affect, data=train, maxit=100)
+summary(full_logistic_model)
+```
+
+```{r full model without subject ID accuracy}
+probabilities = predict(full_logistic_model, test, type='response')
+predictions = ifelse(probabilities > 0.5, 'stress', 'amusement')
+mean(predictions == test$affect) # accuracy
+1- mean(predictions == test$affect) #misclassification error
+```
+
+```{r full model without subject ID validation}
+#confusion matrix
+test_affect = as.factor(test$affect) #truth
+predictions_frac = as.factor(predictions) #predicted
+confusionMatrix(predictions_frac, test_affect)
+
+
+#binned residual plot
+binnedplot(probabilities,residuals(full_logistic_model, type = "response"), nclass = NULL, 
+           xlab = "Expected Values", ylab = "Average residual", main = "Binned residual plot for full model without subject id", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+#ROC CURVE
+test_roc = roc(test$affect2 ~ probabilities, plot = TRUE, print.auc = TRUE)
+```
+
+
+### Full Model with Subject ID
+```{r full model}
+full_model_with_subject_id = glm(affect2 ~ . -affect, data=train, maxit=100)
+summary(full_model_with_subject_id)
+
+final_model_with_subject_id <- full_model_with_subject_id %>% stepAIC(trace = FALSE,direction = "backward" )
+summary(final_model_with_subject_id)
+```
+
+```{r full model accuracy} 
+full_probabilities_id = predict(final_model_with_subject_id, test, type='response')
+full_predictions_id = ifelse(full_probabilities_id > 0.5, 'stress', 'amusement')
+mean(full_predictions_id == test$affect) # accuracy
+1- mean(full_predictions_id == test$affect) #misclassification error
+```
+
+```{r full model validation}
+#confusion matrix
+test_affect = as.factor(test$affect) #truth
+full_predictions_id_frac = as.factor(full_predictions_id) #predicted
+confusionMatrix(full_predictions_id_frac, test_affect)
+
+#ROC CURVE
+test_roc = roc(test$affect2,full_probabilities_id , plot = TRUE, print.auc = TRUE)
+```
+
+### Full model with interactions
+```{r full model with interatcions}
+full_model_with_interactions = glm(affect2 ~ (chest_ACC_magnitude_mean + chest_ECG_HRV_mean + chest_EDA_slope+ chest_RESP_breath_rate + chest_RESP_volume+ chest_SCR_num_segments+chest_TEMP_mean+ subject_id + wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - chest_ACC_magnitude_mean:wrist_ACC_magnitude_mean - chest_EDA_slope:wrist_EDA_slope - chest_SCR_num_segments:wrist_SCR_num_segments - chest_TEMP_mean:wrist_TEMP_mean , data=train, maxit=100)
+
+final_model_with_interaction <- full_model_with_interactions %>% stepAIC(trace = FALSE,direction = "backward" )
+summary(final_model_with_interaction)
+```
+
+```{r full model with interatcions accuracy}
+full_probabilities_interaction = predict(final_model_with_interaction, test, type='response')
+full_predictions_interaction = ifelse(full_probabilities_interaction > 0.5, 'stress', 'amusement')
+mean(full_predictions_interaction == test$affect) # accuracy
+1- mean(full_predictions_interaction == test$affect) #misclassification error
+```
+
+```{r full model with interatcions validation}
+#confusion matrix
+test_affect = as.factor(test$affect) #truth
+full_predictions_interaction_frac = as.factor(full_predictions_interaction) #predicted
+confusionMatrix(full_predictions_id_frac, test_affect)
+
+#ROC CURVE
+test_roc = roc(test$affect2,full_probabilities_interaction , plot = TRUE, print.auc = TRUE)
+```
+
+```{r full model assumptions check}
+#binned residual plot
+binnedplot(full_probabilities_interaction,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Expected Values", ylab = "Average Residual", main = "Binned Residual Plot For Full Model", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+par(mfrow=c(3,2))
+full1 <- binnedplot(test$chest_ACC_magnitude_mean,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Mean Chest ACC magnitude", ylab = "Average Residual", main = "Binned Residual VS Mean Chest ACC magnitude", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full2 <- binnedplot(test$chest_ECG_HRV_mean,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Mean Chest ECG HRV", ylab = "Average Residual", main = "Binned Residual VS Mean Chest ECG HRV", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full3 <- binnedplot(test$chest_EDA_slope,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Slope of Crist EDA", ylab = "Average Residual", main = "Binned Residual VS Slope of Crist EDA", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full4 <-binnedplot(test$chest_RESP_breath_rate,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Chest RESP Breath Rate", ylab = "Average Residual", main = "Binned Residual VS Chest RESP Breath Rate", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full5 <-binnedplot(test$chest_RESP_volume,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Chest RESP Volume", ylab = "Average Residual", main = "Binned residual VS Chest RESP Volume", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full6 <-binnedplot(test$chest_SCR_num_segments,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Chest SCR Num_Segments", ylab = "Average Residual", main = "Binned residual VS Chest SCR Num_Segments", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full7 <-binnedplot(test$chest_TEMP_mean,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Mean Chest Temperature", ylab = "Average Residual", main = "Binned residual VS Mean Chest Temperature", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full8 <- binnedplot(test$wrist_ACC_magnitude_mean,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Mean Wrist ACC Magnitude", ylab = "Average Residual", main = "Binned Residual VS Mean Wrist ACC Magnitude", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full9 <- binnedplot(test$wrist_BVP_HRV_mean,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Mean Wrist BVP HRV", ylab = "Average Residual", main = "Binned Residual VS Mean Wrist BVP HRV", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full10 <- binnedplot(test$wrist_EDA_slope,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Slope of Wrist EDA", ylab = "Average Residual", main = "Binned Residual VS Slope of Wrist EDA", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full11 <-binnedplot(test$wrist_SCR_num_segments,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "wrist_SCR_num_segments", ylab = "Average Residual", main = "Binned Residual VS wrist_SCR_num_segments", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+full12 <-binnedplot(test$wrist_TEMP_mean,residuals(full_model_with_interactions, type = "response"), nclass = NULL, 
+           xlab = "Mean Wrist Temperature", ylab = "Average Residual", main = "Binned residual VS Mean Wrist Temperature", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+```
+
+```{r Full Cooks Distance}
+full_data = train
+
+full_data <- full_data %>%
+  mutate(leverage = hatvalues(full_model_with_interactions),
+         cooks = cooks.distance(full_model_with_interactions),
+         resid = rstandard(full_model_with_interactions),
+         obs.num = row_number())
+
+ggplot(data = full_data, aes(x=obs.num, y=cooks))+ geom_point() + geom_hline(yintercept =1,color="red")+
+  labs(x="Observation Number", y = "Cook's Distance", title = "Cook's Distance")
+
+#vif(full_model_with_interactions)
+```
+
+### Wrist model without Subject ID
+```{r wrist model without subject id}
+wrist_logistic_model = glm(affect2 ~ wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean - subject_id -affect, data=train, maxit=100)
+summary(wrist_logistic_model)
+```
+
+```{r wrist model without subject id accuracy}
+wrist_probabilities = predict(wrist_logistic_model, test, type='response')
+wrist_predictions = ifelse(wrist_probabilities > 0.5, 'stress', 'amusement')
+mean(wrist_predictions == test$affect) # accuracy
+1- mean(wrist_predictions == test$affect) #misclassification error
+```
+
+```{r wrist model without subject id validation}
+#confusion matrix
+test_affect = as.factor(test$affect)
+wrist_predictions_fac = as.factor(wrist_predictions)
+confusionMatrix(wrist_predictions_fac, test_affect)
+
+#binned residual plot
+binnedplot(wrist_probabilities,residuals(wrist_logistic_model, type = "response"), nclass = NULL, 
+           xlab = "Expected Values", ylab = "Average residual", main = "Binned residual plot for wrist model without subject id", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+#ROC CURVE
+test_roc = roc(test$affect2 ~ wrist_probabilities, plot = TRUE, print.auc = TRUE)
+```
+
+### Wrist model with Subject ID
+```{r wrist model}
+wrist_logistic_model_id = glm(affect2 ~ wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean + subject_id -affect, data=train, maxit=100)
+summary(wrist_logistic_model_id)
+
+final_wrist_logistic_model_id <- wrist_logistic_model_id %>% stepAIC(trace = FALSE,direction = "backward" )
+summary(final_wrist_logistic_model_id) #they are identical!
+```
+
+```{r wrist model accuracy}
+wrist_probabilities_id = predict(final_wrist_logistic_model_id, test, type='response')
+wrist_predictions2_id = ifelse(wrist_probabilities_id > 0.5, 'stress', 'amusement')
+mean(wrist_predictions2_id == test$affect) # accuracy
+1- mean(wrist_predictions2_id == test$affect) #misclassification error
+```
+
+```{r wrist model validation}
+#confusion matrix
+test_affect = as.factor(test$affect)
+wrist_predictions2_id_fac = as.factor(wrist_predictions2_id)
+confusionMatrix(wrist_predictions2_id_fac, test_affect)
+
+#ROC CURVE
+test_roc = roc(test$affect2 ~ wrist_probabilities_id, plot = TRUE, print.auc = TRUE)
+```
+
+### Wrist model with interaction
+```{r wrist with interaction}
+wrist_with_interaction = glm(affect2 ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean + subject_id)^2, data=train, maxit=100)
+
+final_wrist_with_interaction <- wrist_with_interaction %>% stepAIC(trace = FALSE,direction = "backward" )
+summary(final_wrist_with_interaction) 
+```
+
+```{r wrist with interaction accuracy}
+wrist_probabilities_interaction = predict(wrist_with_interaction, test, type='response')
+wrist_predictions_interaction = ifelse(wrist_probabilities_interaction > 0.5, 'stress', 'amusement')
+mean(wrist_predictions_interaction == test$affect) # accuracy
+1- mean(wrist_predictions_interaction == test$affect) #misclassification error
+```
+
+```{r wrist with interaction validation}
+#confusion matrix
+test_affect = as.factor(test$affect)
+wrist_predictions_interaction_fac = as.factor(wrist_predictions_interaction)
+confusionMatrix(wrist_predictions_interaction_fac, test_affect)
+
+#ROC CURVE
+test_roc = roc(test$affect2 ~ wrist_probabilities_interaction, plot = TRUE, print.auc = TRUE)
+```
+
+```{r wrist model assumptions check}
+
+#binned residual plot
+binnedplot(wrist_probabilities_interaction,residuals(final_wrist_with_interaction, type = "response"), nclass = NULL, 
+           xlab = "Expected Values", ylab = "Average Residual", main = "Binned Residual Plot For Wrist Model", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+par(mfrow=c(3,2))
+wrist1 <- binnedplot(test$wrist_ACC_magnitude_mean,residuals(final_wrist_with_interaction, type = "response"), nclass = NULL, 
+           xlab = "Mean Wrist ACC Magnitude", ylab = "Average Residual", main = "Binned Residual VS Mean Wrist ACC Magnitude", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+wrist2 <- binnedplot(test$wrist_BVP_HRV_mean,residuals(final_wrist_with_interaction, type = "response"), nclass = NULL, 
+           xlab = "Mean Wrist BVP HRV", ylab = "Average Residual", main = "Binned Residual VS Mean Wrist BVP HRV", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+wrist3 <- binnedplot(test$wrist_EDA_slope,residuals(final_wrist_with_interaction, type = "response"), nclass = NULL, 
+           xlab = "Slope of Wrist EDA", ylab = "Average Residual", main = "Binned Residual VS Slope of Wrist EDA", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+wrist4 <-binnedplot(test$wrist_SCR_num_segments,residuals(final_wrist_with_interaction, type = "response"), nclass = NULL, 
+           xlab = "wrist_SCR_num_segments", ylab = "Average Residual", main = "Binned Residual VS wrist_SCR_num_segments", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+wrist5 <-binnedplot(test$wrist_TEMP_mean,residuals(final_wrist_with_interaction, type = "response"), nclass = NULL, 
+           xlab = "Mean Wrist Temperature", ylab = "Average Residual", main = "Binned residual VS Mean Wrist Temperature", cex.pts = 0.8, col.pts = 1, col.int = "gray")
+
+par(mfrow=c(1,1))
+plot(wrist_logistic_model_id, which = 4, id.n = 5)
+```
+```{r Wrist Cooks Distance}
+wrist_data = train
+
+wrist_data <- wrist_data %>%
+  mutate(leverage = hatvalues(final_wrist_with_interaction),
+         cooks = cooks.distance(final_wrist_with_interaction),
+         resid = rstandard(final_wrist_with_interaction),
+         obs.num = row_number())
+
+ggplot(data = wrist_data, aes(x=obs.num, y=cooks))+ geom_point() + geom_hline(yintercept =1,color="red")+
+  labs(x="Observation Number", y = "Cook's Distance", title = "Cook's Distance")
+```
