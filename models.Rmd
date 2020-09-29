@@ -37,7 +37,6 @@ pkgTest("cowplot")
 pkgTest("nnet")
 pkgTest("car")
 
-#pkgTest("car")
 #pkgTest("InformationValue")
 ```
 
