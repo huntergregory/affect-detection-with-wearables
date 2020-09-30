@@ -93,8 +93,8 @@ for (id in unique(final_data$subject_id)) {
   old_test = rbind(old_test, subject_df[-train_indices,])
 }
 
-train = train[seq(1, nrow(old_train), 10),]
-test = test[seq(1, nrow(old_test), 10),]
+train = old_train[seq(1, nrow(old_train), 10),]
+test = old_test[seq(1, nrow(old_test), 10),]
 
 STRIDE = 30 # FIXME more sophisticated striding before sampling?
 strided_train = train[seq(1, nrow(old_train), 30),]
