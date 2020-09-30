@@ -92,8 +92,7 @@ for (id in unique(final_data$subject_id)) {
   old_train = rbind(old_train, subject_df[train_indices,])
   old_test = rbind(old_test, subject_df[-train_indices,])
 }
-old_train = train
-old_test = test
+
 train = train[seq(1, nrow(old_train), 10),]
 test = test[seq(1, nrow(old_test), 10),]
 
