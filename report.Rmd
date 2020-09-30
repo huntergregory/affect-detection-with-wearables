@@ -37,6 +37,7 @@ pkgTest("arm") #binned residuals
 pkgTest("questionr") #odds ratio function
 pkgTest("cowplot")
 pkgTest("nnet")
+pkgTest("finalfit")
 # pkgTest("car")
 ##pkgTest("InformationValue")
 ```
@@ -74,8 +75,6 @@ good_columns = c('affect', 'subject_id',
                  'chest_RESP_volume', 'chest_SCR_num_segments', 'wrist_SCR_num_segments',
                  'chest_ACC_magnitude_mean', 'wrist_ACC_magnitude_mean', 'chest_TEMP_mean', 'wrist_TEMP_mean', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean')
 final_data = data[good_columns]
-final_data$affect <- as.factor(final_data$affect)
-final_data$affect2 <- as.factor(ifelse(final_data$affect == 'stress', 1, 0))
 ```
 
 
@@ -85,22 +84,22 @@ TODO mathematical formulae
 ```{r train test split, include=FALSE}
 set.seed(100)
 percent_train = 0.8
-train = data.frame()
-test = data.frame()
+old_train = data.frame()
+old_test = data.frame()
 for (id in unique(final_data$subject_id)) {
   subject_df =  final_data[final_data$subject_id == id,]
   train_indices = sample(nrow(subject_df), floor(percent_train * nrow(subject_df)))
-  train = rbind(train, subject_df[train_indices,])
-  test = rbind(test, subject_df[-train_indices,])
+  old_train = rbind(old_train, subject_df[train_indices,])
+  old_test = rbind(old_test, subject_df[-train_indices,])
 }
 old_train = train
 old_test = test
 train = train[seq(1, nrow(old_train), 10),]
-test = train[seq(1, nrow(old_test), 10),]
+test = test[seq(1, nrow(old_test), 10),]
 
 STRIDE = 30 # FIXME more sophisticated striding before sampling?
-strided_train = train[seq(1, nrow(train), 30),]
-strided_test = test[seq(1, nrow(test), 30),]
+strided_train = train[seq(1, nrow(old_train), 30),]
+strided_test = test[seq(1, nrow(old_test), 30),]
 ```
 
 ```{r model helpers, echo=FALSE}
@@ -166,15 +165,16 @@ binned_residuals_vs_x = function(model, model_description, x, xlab) {
 ```
 
 ```{r full model without interactions}
-model_expression = affect2 ~ (chest_ACC_magnitude_mean + chest_ECG_HRV_mean + chest_EDA_slope+ chest_RESP_breath_rate + chest_RESP_volume+ chest_SCR_num_segments+chest_TEMP_mean+ subject_id + 
+model_expression = affect ~ (chest_ACC_magnitude_mean + chest_ECG_HRV_mean + chest_EDA_slope+ chest_RESP_breath_rate + chest_RESP_volume+ chest_SCR_num_segments+chest_TEMP_mean+ subject_id + 
                                wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - chest_ACC_magnitude_mean:wrist_ACC_magnitude_mean - 
-  chest_EDA_slope:wrist_EDA_slope - chest_SCR_num_segments:wrist_SCR_num_segments - chest_TEMP_mean:wrist_TEMP_mean - subject_id -affect
+  chest_EDA_slope:wrist_EDA_slope - chest_SCR_num_segments:wrist_SCR_num_segments - chest_TEMP_mean:wrist_TEMP_mean - subject_id
 
 DO_STRIDE = FALSE
-model = get_logistic_model(model_expression, do_backwards_selection=FALSE, DO_STRIDE)
+model = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(model, DO_STRIDE)
 show_roc(model, DO_STRIDE)
 show_cooks(model, DO_STRIDE)
+
 binned_residuals_vs_preds(model, 'Simple Chest and Wrist Model')
 par(mfrow=c(3,2))
 binned_residuals_vs_x(model, 'Simple Chest and Wrist Model', train$wrist_ACC_magnitude_mean, 'Mean Wrist ACC magnitude')
