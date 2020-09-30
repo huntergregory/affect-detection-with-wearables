@@ -31,16 +31,13 @@ pkgTest("dplyr")
 pkgTest("knitr")
 pkgTest("tibble")
 pkgTest("pROC") #ROC curves
-
 pkgTest("acepack")
 pkgTest("latticeExtra") # install R 3.6.3 if your version is too low for latticeExtra: https://cloud.r-project.org/bin/macosx/
 pkgTest("arm") #binned residuals
-
 pkgTest("questionr") #odds ratio function
 pkgTest("cowplot")
 pkgTest("nnet")
 # pkgTest("car")
-
 ##pkgTest("InformationValue")
 ```
 
@@ -77,6 +74,8 @@ good_columns = c('affect', 'subject_id',
                  'chest_RESP_volume', 'chest_SCR_num_segments', 'wrist_SCR_num_segments',
                  'chest_ACC_magnitude_mean', 'wrist_ACC_magnitude_mean', 'chest_TEMP_mean', 'wrist_TEMP_mean', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean')
 final_data = data[good_columns]
+final_data$affect <- as.factor(final_data$affect)
+final_data$affect2 <- as.factor(ifelse(final_data$affect == 'stress', 1, 0))
 ```
 
 
@@ -94,6 +93,10 @@ for (id in unique(final_data$subject_id)) {
   train = rbind(train, subject_df[train_indices,])
   test = rbind(test, subject_df[-train_indices,])
 }
+old_train = train
+old_test = test
+train = train[seq(1, nrow(old_train), 10),]
+test = train[seq(1, nrow(old_test), 10),]
 
 STRIDE = 30 # FIXME more sophisticated striding before sampling?
 strided_train = train[seq(1, nrow(train), 30),]
@@ -107,14 +110,12 @@ get_train_data = function(do_stride) {
   }
   return(train)
 }
-
 get_test_data = function(do_stride) { 
   if(do_stride) {
     return(strided_test)
   }
   return(test)
 }
-
 get_logistic_model = function(model_expression, do_backwards_selection, do_stride=FALSE) {
   model_data = get_train_data(do_stride)
   logistic_model = glm(model_expression, data=model_data, family="binomial", maxit=100)
@@ -124,29 +125,24 @@ get_logistic_model = function(model_expression, do_backwards_selection, do_strid
   print(summary(logistic_model))
   logistic_model
 }
-
 get_probabilities = function(model, do_stride=FALSE) {
   predict(model, get_test_data(do_stride), type='response')
 }
-
 get_predictions = function(model, do_stride=FALSE) {
   probabilities = get_probabilities(model, do_stride)
   as.factor(ifelse(probabilities > 0.5, 'stress', 'amusement'))
 }
-
 print_stats = function(model, do_stride=FALSE) {
   model_data = get_test_data(do_stride)
   predictions = get_predictions(model, do_stride)
   print(paste('accuracy: ', mean(predictions == model_data$affect)))
   print(confusionMatrix(predictions, as.factor(model_data$affect)))
 }
-
 show_roc = function(model, do_stride=FALSE) {
   numeric_predictions = ifelse(get_predictions(model, do_stride) == 'amusement', 1, 0)
   roc(test$affect ~ numeric_predictions, plot = TRUE, print.auc = TRUE)
   return('roc curve outputted')
 }
-
 show_cooks = function(model, do_stride=FALSE) {
   model_data = get_train_data(do_stride)
   model_data <- model_data %>%
@@ -157,35 +153,34 @@ show_cooks = function(model, do_stride=FALSE) {
   ggplot(data = model_data, aes(x=obs.num, y=cooks))+ geom_point() + geom_hline(yintercept =1,color="red")+
     labs(x="Observation Number", y = "Cook's Distance", title = "Cook's Distance")
 }
-
 binned_residuals_vs_preds = function(model, model_description) {
-  predictions = get_predictions(model)
+  predictions = get_probabilities(model)
   binnedplot(predictions, residuals(model, type = "response"), nclass = NULL, 
            xlab = "Expected Values", ylab = "Average Residuals", main = paste("Binned Residual Plot for ", model_description), cex.pts = 0.8, col.pts = 1, col.int = "gray")
 }
-
-binned_residuals_vs_x = function(model, model_description, column, xlab, do_stride=FALSE) {
-  x = get_train_data(do_stride)[column]
-  predictions = get_predictions(model)
+binned_residuals_vs_x = function(model, model_description, x, xlab) {
+  predictions = get_probabilities(model)
   binnedplot(x, residuals(model, type = "response"), nclass = NULL, 
            xlab = xlab, ylab = "Average Residuals", main = paste("Binned Residual Plot for ", model_description), cex.pts = 0.8, col.pts = 1, col.int = "gray")
 }
 ```
 
 ```{r full model without interactions}
-model_expression = affect ~ . - subject_id
+model_expression = affect2 ~ (chest_ACC_magnitude_mean + chest_ECG_HRV_mean + chest_EDA_slope+ chest_RESP_breath_rate + chest_RESP_volume+ chest_SCR_num_segments+chest_TEMP_mean+ subject_id + 
+                               wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - chest_ACC_magnitude_mean:wrist_ACC_magnitude_mean - 
+  chest_EDA_slope:wrist_EDA_slope - chest_SCR_num_segments:wrist_SCR_num_segments - chest_TEMP_mean:wrist_TEMP_mean - subject_id -affect
 
 DO_STRIDE = FALSE
 model = get_logistic_model(model_expression, do_backwards_selection=FALSE, DO_STRIDE)
 print_stats(model, DO_STRIDE)
 show_roc(model, DO_STRIDE)
 show_cooks(model, DO_STRIDE)
-
-# show_binned_residuals(model, 'Simple Chest and Wrist Model')
-# par(mfrow=c(3,2))
-# show_binned_residuals(model, 'Simple Chest and Wrist Model', 'wrist_ACC_magnitude_mean', 'Mean Wrist ACC magnitude', DO_STRIDE)
+binned_residuals_vs_preds(model, 'Simple Chest and Wrist Model')
+par(mfrow=c(3,2))
+binned_residuals_vs_x(model, 'Simple Chest and Wrist Model', train$wrist_ACC_magnitude_mean, 'Mean Wrist ACC magnitude')
 # ...
 ```
+
 
 ```{r wrist model with interactions}
  model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean+subject_id)^2 - subject_id
