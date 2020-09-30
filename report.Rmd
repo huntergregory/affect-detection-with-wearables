@@ -1,0 +1,204 @@
+---
+title: "Stress and Amusement Detection with Wearables"
+author: "Hunter Gregory, Grace Langford, Jaravee Boonchant"
+date: "September 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r pkgtest, echo=FALSE}
+# source: https://stackoverflow.com/questions/9341635/check-for-installed-packages-before-running-install-packages
+pkgTest <- function(x) {
+  if (!require(x,character.only = TRUE))
+  {
+    install.packages(x,repos = "http://cran.r-project.org",dep=TRUE)
+      if(!require(x,character.only = TRUE)) stop("Package not found")
+  }
+}
+```
+
+```{r check package, include=FALSE}
+pkgTest("MASS")
+pkgTest("ggplot2")
+pkgTest("readr")
+pkgTest("caret")
+pkgTest("broom")
+pkgTest("tidyverse")
+pkgTest("dplyr")
+pkgTest("knitr")
+pkgTest("tibble")
+pkgTest("pROC") #ROC curves
+
+pkgTest("acepack")
+pkgTest("latticeExtra") # install R 3.6.3 if your version is too low for latticeExtra: https://cloud.r-project.org/bin/macosx/
+pkgTest("arm") #binned residuals
+
+pkgTest("questionr") #odds ratio function
+pkgTest("cowplot")
+pkgTest("nnet")
+# pkgTest("car")
+
+##pkgTest("InformationValue")
+```
+
+```{r load data, include=FALSE}
+data = read.csv('./WESAD-one-sec-shift.csv')
+```
+
+```{r column helpers, include=FALSE}
+is_wrist_column = function(column) { substr(column, 1, 6) == 'wrist_' }
+is_chest_column = function(column) { substr(column, 1, 6) == 'chest_' }
+create_is_sensor_column = function(sensor) { 
+  function(column) {
+    length(column) > 6 & substr(column, 7, 7+nchar(sensor)-1) == sensor
+  }
+}
+get_columns = function(sensor, df) { 
+  is_sensor_column = create_is_sensor_column(sensor)
+  is_sensor_column(colnames(df))
+}
+```
+
+# Introduction
+
+# Data
+
+## Feature Extraction
+
+# Methods
+## Exploratory Analysis
+```{r}
+good_columns = c('affect', 'subject_id', 
+                 'chest_EDA_slope', 
+                 'wrist_EDA_slope', 'chest_RESP_breath_rate',
+                 'chest_RESP_volume', 'chest_SCR_num_segments', 'wrist_SCR_num_segments',
+                 'chest_ACC_magnitude_mean', 'wrist_ACC_magnitude_mean', 'chest_TEMP_mean', 'wrist_TEMP_mean', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean')
+final_data = data[good_columns]
+```
+
+
+## Model 
+TODO mathematical formulae
+
+```{r train test split, include=FALSE}
+set.seed(100)
+percent_train = 0.8
+train = data.frame()
+test = data.frame()
+for (id in unique(final_data$subject_id)) {
+  subject_df =  final_data[final_data$subject_id == id,]
+  train_indices = sample(nrow(subject_df), floor(percent_train * nrow(subject_df)))
+  train = rbind(train, subject_df[train_indices,])
+  test = rbind(test, subject_df[-train_indices,])
+}
+
+STRIDE = 30 # FIXME more sophisticated striding before sampling?
+strided_train = train[seq(1, nrow(train), 30),]
+strided_test = test[seq(1, nrow(test), 30),]
+```
+
+```{r model helpers, echo=FALSE}
+get_train_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_train)
+  }
+  return(train)
+}
+
+get_test_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_test)
+  }
+  return(test)
+}
+
+get_logistic_model = function(model_expression, do_backwards_selection, do_stride=FALSE) {
+  model_data = get_train_data(do_stride)
+  logistic_model = glm(model_expression, data=model_data, family="binomial", maxit=100)
+  if (do_backwards_selection) {
+    logistic_model <- logistic_model %>% stepAIC(trace = FALSE,direction = "backward" )
+  }
+  print(summary(logistic_model))
+  logistic_model
+}
+
+get_probabilities = function(model, do_stride=FALSE) {
+  predict(model, get_test_data(do_stride), type='response')
+}
+
+get_predictions = function(model, do_stride=FALSE) {
+  probabilities = get_probabilities(model, do_stride)
+  as.factor(ifelse(probabilities > 0.5, 'stress', 'amusement'))
+}
+
+print_stats = function(model, do_stride=FALSE) {
+  model_data = get_test_data(do_stride)
+  predictions = get_predictions(model, do_stride)
+  print(paste('accuracy: ', mean(predictions == model_data$affect)))
+  print(confusionMatrix(predictions, as.factor(model_data$affect)))
+}
+
+show_roc = function(model, do_stride=FALSE) {
+  numeric_predictions = ifelse(get_predictions(model, do_stride) == 'amusement', 1, 0)
+  roc(test$affect ~ numeric_predictions, plot = TRUE, print.auc = TRUE)
+  return('roc curve outputted')
+}
+
+show_cooks = function(model, do_stride=FALSE) {
+  model_data = get_train_data(do_stride)
+  model_data <- model_data %>%
+    mutate(leverage = hatvalues(model),
+           cooks = cooks.distance(model),
+           resid = rstandard(model),
+           obs.num = row_number())
+  ggplot(data = model_data, aes(x=obs.num, y=cooks))+ geom_point() + geom_hline(yintercept =1,color="red")+
+    labs(x="Observation Number", y = "Cook's Distance", title = "Cook's Distance")
+}
+
+binned_residuals_vs_preds = function(model, model_description) {
+  predictions = get_predictions(model)
+  binnedplot(predictions, residuals(model, type = "response"), nclass = NULL, 
+           xlab = "Expected Values", ylab = "Average Residuals", main = paste("Binned Residual Plot for ", model_description), cex.pts = 0.8, col.pts = 1, col.int = "gray")
+}
+
+binned_residuals_vs_x = function(model, model_description, column, xlab, do_stride=FALSE) {
+  x = get_train_data(do_stride)[column]
+  predictions = get_predictions(model)
+  binnedplot(x, residuals(model, type = "response"), nclass = NULL, 
+           xlab = xlab, ylab = "Average Residuals", main = paste("Binned Residual Plot for ", model_description), cex.pts = 0.8, col.pts = 1, col.int = "gray")
+}
+```
+
+```{r full model without interactions}
+model_expression = affect ~ . - subject_id
+
+DO_STRIDE = FALSE
+model = get_logistic_model(model_expression, do_backwards_selection=FALSE, DO_STRIDE)
+print_stats(model, DO_STRIDE)
+show_roc(model, DO_STRIDE)
+show_cooks(model, DO_STRIDE)
+
+# show_binned_residuals(model, 'Simple Chest and Wrist Model')
+# par(mfrow=c(3,2))
+# show_binned_residuals(model, 'Simple Chest and Wrist Model', 'wrist_ACC_magnitude_mean', 'Mean Wrist ACC magnitude', DO_STRIDE)
+# ...
+```
+
+```{r wrist model with interactions}
+ model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean+subject_id)^2 - subject_id
+```
+
+```{r full model with interactions}
+model_expression = affect ~ (chest_ACC_magnitude_mean + chest_ECG_HRV_mean + chest_EDA_slope+ chest_RESP_breath_rate + chest_RESP_volume+ chest_SCR_num_segments+chest_TEMP_mean+ subject_id + 
+                               wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - chest_ACC_magnitude_mean:wrist_ACC_magnitude_mean - 
+  chest_EDA_slope:wrist_EDA_slope - chest_SCR_num_segments:wrist_SCR_num_segments - chest_TEMP_mean:wrist_TEMP_mean - subject_id
+```
+
+
+# Results
+
+
+# Conclusions
