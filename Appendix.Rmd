@@ -1,0 +1,475 @@
+---
+title: "Appendix"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r pkgtest, echo=FALSE}
+# source: https://stackoverflow.com/questions/9341635/check-for-installed-packages-before-running-install-packages
+pkgTest <- function(x) {
+  if (!require(x,character.only = TRUE))
+  {
+    install.packages(x,repos = "http://cran.r-project.org",dep=TRUE)
+      if(!require(x,character.only = TRUE)) stop("Package not found")
+  }
+}
+```
+
+```{r check package, include=FALSE}
+pkgTest("MASS")
+pkgTest("ggplot2")
+pkgTest("readr")
+pkgTest("caret")
+pkgTest("broom")
+pkgTest("tidyverse")
+pkgTest("dplyr")
+pkgTest("knitr")
+pkgTest("tibble")
+pkgTest("pROC") #ROC curves
+pkgTest("acepack")
+pkgTest("latticeExtra") # install R 3.6.3 if your version is too low for latticeExtra: https://cloud.r-project.org/bin/macosx/
+pkgTest("arm") #binned residuals
+pkgTest("questionr") #odds ratio function
+pkgTest("cowplot")
+pkgTest("nnet")
+pkgTest("finalfit")
+pkgTest("gtsummary")
+pkgTest("aod")
+# pkgTest("car")
+##pkgTest("InformationValue")
+```
+
+##Data Prep
+```{r remove-col}
+## remove unecessary columns 
+data = read.csv("WESAD-one-sec-shift.csv")
+bad_columns = c('X1', 
+                'wrist_BVP_HRV_low_high_freq_ratio', 'chest_ECG_HRV_low_high_freq_ratio',
+                'wrist_BVP_HRV_low_freq_normalized', 'chest_ECG_HRV_low_freq_normalized', 
+                'wrist_BVP_HRV_low_freq','chest_ECG_HRV_low_freq', 
+                'wrist_BVP_HRV_ultra_low_freq', 'chest_ECG_HRV_ultra_low_freq')
+data = data[!names(data) %in% bad_columns]
+is_wrist_column = function(column) { substr(column, 1, 6) == 'wrist_' }
+is_chest_column = function(column) { substr(column, 1, 6) == 'chest_' }
+create_is_sensor_column = function(sensor) { 
+  function(column) {
+    length(column) > 6 & substr(column, 7, 7+nchar(sensor)-1) == sensor
+  }
+}
+get_columns = function(sensor) { 
+  is_sensor_column = create_is_sensor_column(sensor)
+  is_sensor_column(colnames(data))
+}
+# remove acceleration components
+get_ACC_component_cols = function(component) {
+  get_columns(paste('ACC', component, sep='_'))
+}
+data = data[!get_ACC_component_cols('x')]
+data = data[!get_ACC_component_cols('y')]
+data = data[!get_ACC_component_cols('z')]
+
+##data <- data %>%
+  #mutate(affect = case_when(affect == "amusement" ~ 0, 
+ #                           affect == "stress" ~ 1))
+
+
+```
+
+#Correlation Analysis
+```{r }
+## create data frame of just numeric variables to be used for correlation matrix
+num_data = data
+word_cols = c('affect', 'subject_id')
+num_data<-num_data[,!names(num_data) %in% word_cols]
+num_data
+
+
+## calculate summary statistics and missing data analysis 
+## chest_SCR_sum_response_durations and chest_SCR_sum_startle_magnitudes have 6 missing values, less than 0.01%
+## wrist_SCR_sum_response_durations and wrist_SCR_sum_startle_magnitudes have 4 missing values, less than 0.01%
+library(finalfit)
+data%>%
+  ff_glimpse()
+
+
+# list rows of data that have missing values
+num_data[!complete.cases(num_data),]
+
+## only 8 observations so we removed them 
+newdata <- na.omit(num_data)
+
+##compute correlation matrix
+cor_all<- round(cor(newdata, method = "pearson"),2)
+cor_all
+
+##make correlation matrix into table (for each subtract 69 b/c cols are completely correlated with themselves and divide by 2 because of symmetry). below are the number of pairs at that correlation
+## 85 with freq > 0.5
+## 69 with freq > 0.6
+## 193 with freq > 0.7
+## 165 with freq > 0.8
+## 145 with freq > 0.9
+## 29 with 1.0
+## 2,147 total
+cor_df <- as.data.frame(as.table(cor_all))%>%
+  arrange(desc(Freq)) %>% filter(Freq == 1.0)
+
+cor_df
+
+##summarise number of stress and amusement observations
+data %>% group_by(affect)%>% summarise(c = n())
+```
+
+#Boxplots of Means of All Features
+```{r boxplots}
+## select all vars with means within their sensor
+colnames(data)[grepl('mean', colnames(data))]
+
+
+## Chest Heart Rate Variability 
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_mean)) + geom_boxplot()
+
+## Chest Acceration Magnitude
+## very little difference, very little variance
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_mean)) + geom_boxplot()
+
+## Chest Heart Rate 
+ggplot(data, aes(x=affect, y=chest_ECG_HR_mean)) + geom_boxplot()
+
+## Chest EDA 
+## pretty similary distributions
+ggplot(data, aes(x=affect, y=chest_EDA_mean)) + geom_boxplot()
+
+## Chest Respiration Exhale 
+## exhale and inhale are the same
+ggplot(data, aes(x=affect, y=chest_RESP_exhale_mean)) + geom_boxplot()
+
+## Chest Respiration Inhale 
+ggplot(data, aes(x=affect, y=chest_RESP_exhale_mean)) + geom_boxplot()
+
+## Chest Respiration Breath Rate
+ggplot(data, aes(x=affect, y=chest_RESP_breath_rate)) + geom_boxplot()
+
+## Chest Respiration Breath Volume
+ggplot(data, aes(x=affect, y=chest_RESP_volume)) + geom_boxplot()
+
+## Chest SCL 
+## very similar distributions
+ggplot(data, aes(x=affect, y=chest_SCL_mean)) + geom_boxplot()
+
+## Chest Temperature 
+ggplot(data, aes(x=affect, y=chest_TEMP_mean)) + geom_boxplot()
+
+## Wrist Acceleration Magnitude 
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_mean)) + geom_boxplot()
+
+## Wrist Blood Volume Pulse HRV 
+## very similar 
+ggplot(data, aes(x=affect, y=wrist_BVP_HRV_mean)) + geom_boxplot()
+
+## Wrist Blood Volume Pulse HR 
+ggplot(data, aes(x=affect, y=wrist_BVP_HR_mean)) + geom_boxplot()
+
+## Wrist EDA 
+## very similar, but stress has more variance
+ggplot(data, aes(x=affect, y=wrist_EDA_mean)) + geom_boxplot()
+
+## Wrist SCL 
+## same as wrist eda
+ggplot(data, aes(x=affect, y=wrist_SCL_mean)) + geom_boxplot()
+
+## Wrist Temperature 
+ggplot(data, aes(x=affect, y=wrist_TEMP_mean)) + geom_boxplot()
+
+
+
+```
+
+#Boxplots of all Acceleration Features
+```{r}
+## select all vars with ACC
+
+colnames(data)[grepl('ACC', colnames(data))]
+
+##Plot all acceleration variables
+## Chest Acceration Magnitude Mean
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_mean)) + geom_boxplot()
+
+## Wrist Acceration Magnitude Mean
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_mean)) + geom_boxplot()
+
+
+
+##Wrist Acceration Magnitude std.
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_std)) + geom_boxplot()
+
+## Chest Acceration Magnitude absolute integral
+ggplot(data, aes(x=affect, y=chest_ACC_magnitude_absolute_integral)) + geom_boxplot()
+       
+## Wrist Acceration Magnitude absolute integral
+ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_absolute_integral)) + geom_boxplot()
+```
+
+
+#Boxplots of all Heart rate vars
+```{r}
+## select all vars with HR
+## ecg hrv mean is very good predictor so is % large intervals but they are very correlated 
+colnames(data)[grepl('HRV', colnames(data))]
+
+## Chest ecg HRV Mean
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_mean)) + geom_boxplot()
+
+## Chest ecg HRV rms
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_rms)) + geom_boxplot()
+
+## Chest ecg HRV tinn
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_tinn)) + geom_boxplot()
+
+## Chest ecg HRV std
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_std)) + geom_boxplot()
+
+## Chest ecg HRV percent large intervals
+ggplot(data, aes(x=affect, y=chest_ECG_HRV_percent_large_intervals)) + geom_boxplot()
+
+
+## Wrist BVP HRV mean
+ggplot(data, aes(x=affect, y=wrist_BVP_HRV_mean)) + geom_boxplot()
+
+
+```
+
+
+#Boxplots of all temperature vars
+```{r}
+## select all vars with temp
+## min are all similar, slope is not helpful, std max and mean are all similarly helpful so we choose mean
+colnames(data)[grepl('TEMP', colnames(data))]
+
+## Chest Temp Max
+ggplot(data, aes(x=affect, y=chest_TEMP_max)) + geom_boxplot()
+
+## Chest Temp Mean
+ggplot(data, aes(x=affect, y=chest_TEMP_mean)) + geom_boxplot()
+
+## Chest Temp Min
+ggplot(data, aes(x=affect, y=chest_TEMP_min)) + geom_boxplot()
+
+## Chest Temp Slope
+ggplot(data, aes(x=affect, y=chest_TEMP_slope)) + geom_boxplot()
+
+## Chest Temp STD
+ggplot(data, aes(x=affect, y=chest_TEMP_std)) + geom_boxplot()
+
+
+```
+
+# Model Fitting
+```{r create data, include=FALSE}
+good_columns = c('affect', 'subject_id', 
+                 'chest_EDA_slope', 
+                 'wrist_EDA_slope', 'chest_RESP_breath_rate',
+                 'chest_RESP_volume', 'chest_SCR_num_segments', 'wrist_SCR_num_segments',
+                 'chest_ACC_magnitude_mean', 'wrist_ACC_magnitude_mean', 'chest_TEMP_mean', 'chest_TEMP_slope', 'wrist_TEMP_mean', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean')
+final_data = data[good_columns]
+final_data$affect = as.factor(final_data$affect)
+#final_data$affect2 <- as.factor(ifelse(final_data$affect == 'stress', 1, 0))
+final_data$subject_id = as.factor(final_data$subject_id)
+final_data$chest_EDA_slope = (final_data$chest_EDA_slope - mean(final_data$chest_EDA_slope))/sd(final_data$chest_EDA_slope)
+final_data$chest_RESP_breath_rate = (final_data$chest_RESP_breath_rate - mean(final_data$chest_RESP_breath_rate))/sd(final_data$chest_RESP_breath_rate)
+final_data$chest_RESP_volume = (final_data$chest_RESP_volume - mean(final_data$chest_RESP_volume))/sd(final_data$chest_RESP_volume)
+final_data$chest_SCR_num_segments = (final_data$chest_SCR_num_segments - mean(final_data$chest_SCR_num_segments))/sd(final_data$chest_SCR_num_segments)
+final_data$wrist_ACC_magnitude_mean = (final_data$wrist_ACC_magnitude_mean - mean(final_data$wrist_ACC_magnitude_mean))/sd(final_data$wrist_ACC_magnitude_mean)
+final_data$chest_TEMP_mean = (final_data$chest_TEMP_mean - mean(final_data$chest_TEMP_mean))/sd(final_data$chest_TEMP_mean)
+final_data$chest_TEMP_slope = (final_data$chest_TEMP_slope - mean(final_data$chest_TEMP_slope))/sd(final_data$chest_TEMP_slope)
+final_data$wrist_TEMP_mean = (final_data$wrist_TEMP_mean - mean(final_data$wrist_TEMP_mean))/sd(final_data$wrist_TEMP_mean)
+final_data$chest_ECG_HRV_mean = (final_data$chest_ECG_HRV_mean - mean(final_data$chest_ECG_HRV_mean))/sd(final_data$chest_ECG_HRV_mean)
+final_data$wrist_BVP_HRV_mean = (final_data$wrist_BVP_HRV_mean - mean(final_data$wrist_BVP_HRV_mean))/sd(final_data$wrist_BVP_HRV_mean)
+```
+
+```{r train test split, include=FALSE}
+set.seed(100)
+percent_train = 0.8
+old_train = data.frame()
+old_test = data.frame()
+for (id in unique(final_data$subject_id)) {
+  subject_df =  final_data[final_data$subject_id == id,]
+  train_indices = sample(nrow(subject_df), floor(percent_train * nrow(subject_df)))
+  old_train = rbind(old_train, subject_df[train_indices,])
+  old_test = rbind(old_test, subject_df[-train_indices,])
+}
+train = old_train[seq(1, nrow(old_train), 10),]
+test = old_test[seq(1, nrow(old_test), 10),]
+STRIDE = 30 # FIXME more sophisticated striding before sampling?
+strided_train = old_train[seq(1, nrow(old_train), 30),]
+strided_test = old_test[seq(1, nrow(old_test), 30),]
+```
+
+```{r model helpers, include=FALSE}
+get_train_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_train)
+  }
+  return(train)
+}
+get_test_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_test)
+  }
+  return(test)
+}
+get_logistic_model = function(model_expression, do_backwards_selection, do_stride=FALSE) {
+  model_data = get_train_data(do_stride)
+  logistic_model = glm(model_expression, data=model_data, family="binomial", maxit=100)
+  if (do_backwards_selection) {
+    logistic_model <- logistic_model %>% stepAIC(trace = FALSE,direction = "backward" )
+  }
+  print(summary(logistic_model))
+  logistic_model
+}
+get_probit_model = function(model_expression, do_backwards_selection, do_stride=FALSE) {
+  model_data = get_train_data(do_stride)
+  logistic_model = glm(model_expression, data=model_data, family =binomial(link = "probit"), maxit=100)
+  if (do_backwards_selection) {
+    logistic_model <- logistic_model %>% stepAIC(trace = FALSE,direction = "backward" )
+  }
+  print(summary(logistic_model))
+  logistic_model
+}
+get_probabilities = function(model, do_stride=FALSE) {
+  predict(model, get_test_data(do_stride), type='response')
+}
+get_predictions = function(model, do_stride=FALSE) {
+  probabilities = get_probabilities(model, do_stride)
+  as.factor(ifelse(probabilities > 0.5, 'stress', 'amusement'))
+}
+print_stats = function(model, do_stride=FALSE) {
+  model_data = get_test_data(do_stride)
+  predictions = get_predictions(model, do_stride)
+  print(paste('accuracy: ', mean(predictions == model_data$affect)))
+  print(confusionMatrix(predictions, as.factor(model_data$affect)))
+}
+show_roc = function(model, do_stride=FALSE) {
+  numeric_predictions = ifelse(get_predictions(model, do_stride) == 'amusement', 1, 0)
+  x = roc(test$affect ~ numeric_predictions, plot = TRUE, print.auc = TRUE)
+  return()
+}
+show_cooks = function(model, do_stride=FALSE) {
+  model_data = get_train_data(do_stride)
+  model_data <- model_data %>%
+    mutate(leverage = hatvalues(model),
+           cooks = cooks.distance(model),
+           resid = rstandard(model),
+           obs.num = row_number())
+  ggplot(data = model_data, aes(x=obs.num, y=cooks))+ geom_point() + geom_hline(yintercept =1,color="red")+
+    labs(x="Observation Number", y = "Cook's Distance", title = "Cook's Distance")
+}
+binned_residuals_vs_preds = function(model, model_description) {
+  predictions = get_probabilities(model)
+  binnedplot(predictions, residuals(model, type = "response"), nclass = NULL, 
+           xlab = "Expected Values", ylab = "Average Residuals", main = paste("Binned Residual Plot for ", model_description), cex.pts = 0.8, col.pts = 1, col.int = "gray")
+}
+binned_residuals_vs_x = function(model, model_description, x, xlab) {
+  predictions = get_probabilities(model)
+  binnedplot(x, residuals(model, type = "response"), nclass = NULL, 
+           xlab = xlab, ylab = "Average Residuals", main = paste("Binned Residual Plot for ", model_description), cex.pts = 0.8, col.pts = 1, col.int = "gray")
+}
+```
+
+## Chest and wrist model
+```{r simple chest and wrist model,include= TRUE}
+model_expression = affect ~ . -subject_id
+DO_STRIDE = FALSE
+chest_wrist_simple = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
+print_stats(chest_wrist_simple, DO_STRIDE)
+show_roc(chest_wrist_simple, DO_STRIDE)
+show_cooks(chest_wrist_simple, DO_STRIDE)
+binned_residuals_vs_preds(chest_wrist_simple, 'Simple Chest and Wrist Model')
+par(mfrow=c(3,2))
+par(mfrow=c(3,2))
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_EDA_slope, 'Slope of Chest EDA')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$wrist_EDA_slope, 'Slope of Wrist EDA')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_RESP_breath_rate, 'Chest RESP Breath Rate')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_RESP_volume, 'Chest RESP Volumee')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_SCR_num_segments, 'Chest SCR Num Segments')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$wrist_SCR_num_segments, 'Wrist SCR Num Segments')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_ACC_magnitude_mean, 'Mean Chest ACC magnitude')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$wrist_ACC_magnitude_mean, 'Mean Wrist ACC magnitude')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_TEMP_mean, 'Mean Chest Temperature')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_TEMP_slope, 'Slope of Chest Temperature')
+binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
+```
+
+## Wrist model without interactions
+```{r wrist model without interactions}
+model_expression = affect ~ wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean 
+DO_STRIDE = FALSE
+wrist_simple = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
+print_stats(wrist_simple, DO_STRIDE)
+show_roc(wrist_simple, DO_STRIDE)
+show_cooks(wrist_simple, DO_STRIDE)
+binned_residuals_vs_preds(wrist_simple, 'Simple Chest and Wrist Model')
+par(mfrow=c(3,2))
+binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_ACC_magnitude_mean, 'Mean Wrist ACC magnitude')
+binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_BVP_HRV_mean, 'Mean Wrist BVP HRV')
+binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_EDA_slope, 'Slope Wrist EDA')
+binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_SCR_num_segments, 'Wrist SCR Num Segments')
+binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
+```
+
+## Wrist model with interactions
+```{r wrist model with interactions}
+model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - wrist_EDA_slope:wrist_SCR_num_segments 
+DO_STRIDE = FALSE
+wrist_interaction = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
+print_stats(wrist_interaction, DO_STRIDE)
+show_roc(wrist_interaction, DO_STRIDE)
+show_cooks(wrist_interaction, DO_STRIDE)
+binned_residuals_vs_preds(wrist_interaction, 'Wrist Model with Interaction')
+par(mfrow=c(3,2))
+binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_ACC_magnitude_mean, 'Mean Wrist ACC magnitude')
+binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_BVP_HRV_mean, 'Mean Wrist BVP HRV')
+binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_EDA_slope, 'Slope Wrist EDA')
+binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_SCR_num_segments, 'Wrist SCR Num Segments')
+binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
+```
+
+#Quantifying heterogeneity
+
+```{r}
+##look at means for each variable by subject by affect  
+table_het<-final_data%>%
+  group_by(subject_id, affect)%>%
+  summarise(Mean_Chest_ACC = mean(chest_ACC_magnitude_mean), Mean_ECG_HRV = mean(chest_ECG_HRV_mean), Mean_Chest_EDA_Slope = mean(chest_EDA_slope), Mean_Breath_Rate = mean(chest_RESP_breath_rate), Mean_Resp_Vol = mean(chest_RESP_volume), Mean_Chest_SCR_Segments = mean(chest_SCR_num_segments), Mean_Chest_Temp = mean(chest_TEMP_mean), Mean_Wrist_ACC = mean(wrist_ACC_magnitude_mean), Mean_BVP_HRV = mean(wrist_BVP_HRV_mean), Mean_Wrist_EDA_Slope = mean(wrist_EDA_slope), Mean_Wrist_SCR_Segments = mean(wrist_SCR_num_segments), Mean_Wrist_Temp = mean(wrist_TEMP_mean) )
+
+##create table of above means
+data_hetero<-as.data.frame(table_het)
+
+## create table of min and max of overall averages of each characteristic to show hetergeneeity 
+library(gtsummary)
+data_hetero%>%select(-subject_id)%>%
+  tbl_summary(by = affect,
+              statistic = all_continuous() ~ c(
+                                     "({min}, {max})"),
+              digits = all_continuous()~2)%>%
+  bold_labels()%>%
+  modify_spanning_header(c("stat_1", "stat_2") ~"**(Min, Max)**")
+
+```
+
+# Probit Model
+```{r Simple Chest and Wrist probit model}
+model_expression = affect ~ . - subject_id
+DO_STRIDE = FALSE
+Simple_probit = get_probit_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
+print_stats(Simple_probit, DO_STRIDE)
+show_roc(Simple_probit, DO_STRIDE)
+show_cooks(Simple_probit, DO_STRIDE)
+binned_residuals_vs_preds(Simple_probit, 'Chest and Wrist Probit Model')
+```
+
+
