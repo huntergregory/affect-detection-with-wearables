@@ -32,7 +32,7 @@ pkgTest("knitr")
 pkgTest("tibble")
 pkgTest("pROC") #ROC curves
 pkgTest("acepack")
-pkgTest("latticeExtra") # install R 3.6.3 if your version is too low for latticeExtra: https://cloud.r-project.org/bin/macosx/
+#pkgTest("latticeExtra") # install R 3.6.3 if your version is too low for latticeExtra: https://cloud.r-project.org/bin/macosx/
 pkgTest("arm") #binned residuals
 pkgTest("questionr") #odds ratio function
 pkgTest("cowplot")
@@ -40,6 +40,7 @@ pkgTest("nnet")
 pkgTest("finalfit")
 pkgTest("gtsummary")
 pkgTest("aod")
+pkgTest("plotROC")
 # pkgTest("car")
 ##pkgTest("InformationValue")
 ```
@@ -63,13 +64,13 @@ get_columns = function(sensor, df) {
 ```
 
 ## 1. Introduction
-In the last ten years, there have been significant strides in the development of wearable devices. Wearable devices have existed for centuries, dating back to the invention of an air conditioned top hat in the Victorian era, but more recently the industry has seen an emergence of devices that track affect and activity using physiological and motion data$^{5}$. 
+In the last ten years, there have been significant strides in the development of wearable devices. Wearable devices have existed for centuries, dating back to the invention of an air conditioned top hat in the Victorian era, but more recently the industry has seen an emergence of devices that track affect and activity using physiological and motion data$[5]$. 
 \newline
- Using wearables to detect and predict stress has the potential to minimize and prevent the negative health consequences associated with chronic stress. Stress responses are triggered by the Sympathetic Nervous System (SNS) (within the Autonomic Nervous System (ANS)) as reactions to environmental stimuli that are perceived as threatening. The release of cortisol and adrenaline causes accelerated heart rate, increased respiration, dilated pupils, perspiration, elevated body temperature, increased blood pressure and many more physical reactions11. The incremental effect of cortisol release over time can have detrimental effects on the human body. Repeated episodes of stress also encourage memory loss by weakening the hippocampal brain cell, resulting in “brain shrinkage.” Studies have shown that it is linked to brain atrophy, compromises many physiological systems, and is highly correlated with chronic illness and reduced life expectancy$^{11}$. 
+Using wearables to detect and predict stress has the potential to minimize and prevent the negative health consequences associated with chronic stress. Stress responses are triggered by the Sympathetic Nervous System (SNS) (within the Autonomic Nervous System (ANS)) as reactions to environmental stimuli that are perceived as threatening. The release of cortisol and adrenaline causes accelerated heart rate, increased respiration, dilated pupils, perspiration, elevated body temperature, increased blood pressure and many more physical reactions$[12]$. The incremental effect of cortisol release over time can have detrimental effects on the human body. Repeated episodes of stress also encourage memory loss by weakening the hippocampal brain cell, resulting in “brain shrinkage.” Studies have shown that it is linked to brain atrophy, compromises many physiological systems, and is highly correlated with chronic illness and reduces life expectancy$[12]$. 
 \newline
-Stress response acts through three main forms; physiological, behavioral, and affective11. Wearable devices attempt to detect stress through observable physiological data. However, because stress is highly subjective and presents differently in individuals, stress reactions are difficult to directly discern through observable physiological responses. This lack of a standard definition of stress presents as a major obstacle in the effective computing of stress responses with wearable devices$^{10}$. 
+Stress response acts through three main forms; physiological, behavioral, and affective$[12]$. Wearable devices attempt to detect stress through observable physiological data. However, because stress is highly subjective and presents differently in individuals, stress reactions are difficult to directly discern through observable physiological responses. This lack of a standard definition of stress presents as a major obstacle in the effective computing of stress responses with wearable devices$[11]$. 
 \newline
-The Wearable Stress and Affect Detection (WESAD) dataset was created in an attempt to provide a standardized multimodal dataset to aid in the development of empathetic machines based on human-computer interaction models10. We build on the work of the WESAD authors by considering the classification problem between stress and amusement using physiological data from wearable devices. 
+The Wearable Stress and Affect Detection (WESAD) dataset was created in an attempt to provide a standardized multimodal dataset to aid in the development of empathetic machines based on human-computer interaction models$[11]$. We build on the work of the WESAD authors by considering the classification problem between stress and amusement using physiological data from wearable devices. 
 
 The aim of this paper is to use the WESAD dataset to investigate the following questions:
 
@@ -81,17 +82,17 @@ The aim of this paper is to use the WESAD dataset to investigate the following q
 
 * Can we quantify the heterogeneity across individuals in the response to stress vs. amusement?
 
-Our analysis found that we can classify stress vs. amusement with high accuracy using a combination of wrist-worn and chest-worn device data in combination. Classifying solely based on wrist-worn device data is less accurate. The most heterogeneity between individuals in response to stress vs. amusement was related to heart rate variability.Based on our model, we found that all chest and wrist sensor data have characteristics that contribute significantly to detecting stress vs amusement, except from electrodermal activity (EDA).
+Our analysis found that we can classify stress vs. amusement with high accuracy using a combination of wrist-worn and chest-worn device data in combination. Classifying solely based on wrist-worn device data is less accurate. The most heterogeneity between individuals in response to stress vs. amusement was related to heart rate variability. Our model found that all chest and wrist sensor data have characteristics that contribute significantly to detecting stress vs amusement, except from electrodermal activity (EDA).
 \newline
 Section 2. of our paper will elaborate on the WESAD dataset, feature extraction from the data, and results of exploratory data analysis. In Section 3,  we will describe our methodology for the logistic regression model with features from both RespiBan and Empatica 4 (Full Model), as well as the logistic regression model with only features from Empatica 4 (Wrist Model). We will also analyse the results of both models in this section. In Section 4, we will provide model validations and sensitivity analysis and discuss the limitations and future investigations of our analysis. Lastly, in Section 5. we will develop conclusions of our analysis. The code will be attached in the Appendix.
 
 ## 2.Data and Exploratory Data Analysis
 ### 2.1 Data 
-The WESAD dataset is composed of multivariate time-series data of sensor modalities of 17 participants recorded from a chest-worn (RespiBan Professional) device and a wrist-worn device (Empatica E4) that were synced up together. Two participants did not complete the study and were therefore omitted from the data, leaving a remainder of 15 participants for our analysis. The study was conducted on graduate students and excluded pregnant women, heavy smokers, people with mental disorders, as well as people with chronic and cardiovascular diseases. Participants provided demographic information, a pre-study assessment, and a post-study survey to highlight any biases or errors in the reported data. The original authors of this dataset wanted to detect affective states with wearable devices. Participants were exposed to stimuli that evoked four different affective states-- baseline, stress, amusement, meditation. Physiological metrics were used to measure ANS functioning, which can then be used to detect stress10. The physiological metrics and their corresponding sampling rates, in hertz (Hz), are provided in the Table 1 below:
+The WESAD dataset is composed of multivariate time-series data of sensor modalities of 17 participants recorded from a chest-worn (RespiBan Professional) device and a wrist-worn device (Empatica E4) that were synced up together. Two participants did not complete the study and were therefore omitted from the data, leaving a remainder of 15 participants for our analysis. The study was conducted on graduate students and excluded pregnant women, heavy smokers, people with mental disorders, as well as people with chronic and cardiovascular diseases. Participants provided demographic information, a pre-study assessment, and a post-study survey to highlight any biases or errors in the reported data. The original authors of this dataset wanted to detect affective states with wearable devices. Participants were exposed to stimuli that evoked four different affective states-- baseline, stress, amusement, meditation. Physiological metrics were used to measure ANS functioning, which can then be used to detect stress$[11]$. The physiological metrics and their corresponding sampling rates, in hertz (Hz), are provided in the Table 1 below:
 
-### Table 1: Breakdown of sensors used in the WESAD study 
+#### Table 1: Breakdown of sensors used in the WESAD study 
 ```{r create table, fig.align='center',fig.width=6,fig.height=4,echo=FALSE}
-vars <- data.frame("Sensor" = c("Electrocardiogram (ECG)", "Electrodermal Activity (EDA)", "Electromyogram (EMG)", "Respiration ", "Body Temperature", "3-Axis Accerometry (ACC)", "Blood Volume Pulse (BVP)", "Electrodermal Activity (EDA)", "Skin Temperature", "3-Axis Accelerometry"), "Device" = c("RespiBan", "RespiBan","RespiBan","RespiBan","RespiBan","RespiBan","Empatica E4","Empatica E4","Empatica E4","Empatica E4"), "Sampling_Rate_Hz" = c(700, 700, 700, 700, 700, 700, 64, 4, 4, 32))
+vars <- data.frame("Sensor" = c("Electrocardiogram (ECG)", "Electrodermal Activity (EDA)", "Electromyogram (EMG)", "Respiration ", "Body Temperature", "3-Axis Accelerometry (ACC)", "Blood Volume Pulse (BVP)", "Electrodermal Activity (EDA)", "Skin Temperature", "3-Axis Accelerometry"), "Device" = c("RespiBan", "RespiBan","RespiBan","RespiBan","RespiBan","RespiBan","Empatica E4","Empatica E4","Empatica E4","Empatica E4"), "Sampling_Rate_Hz" = c(700, 700, 700, 700, 700, 700, 64, 4, 4, 32))
 
 kable(vars)
 ```
@@ -99,13 +100,13 @@ kable(vars)
 ### 2.2 Feature Extraction
 Schmidt et al performed classification on WESAD for baseline versus stress versus amusement as well as stress versus non-stress. For classification, they calculated features using a sliding window on the sensor data with a window size of 60 seconds for all sensors besides the accelerometer, for which they used a five second window. Since accelerometry data requires a smaller window size due to high variability and rapid changing quality, we decided to follow Schmidt et al’s precedent. We experiment with different window shifts, but start with a ten second shift. 
 \newline
-We processed the data using NeuroKit2, a Python module that was developed to allow researchers and clinicians to access biosignal processing routines and analyze physiological data in a comprehensible and computationally efficient way$^{9}$. This package has been utilized for a multitude of studies and academic journal articles (ex:Jun et al.$^{6}$). 
+We processed the data using NeuroKit2, a Python module that was developed to allow researchers and clinicians to access biosignal processing routines and analyze physiological data in a comprehensible and computationally efficient way$[10]$. This package has been utilized for a multitude of studies and academic journal articles (ex:Jun et al.$[7]$). 
 \newline
-	All features were inspired by Schmidt et al. For TEMP, we calculate mean, standard deviation, minimum, maximum, and slope from window start to finish over the raw signal. For ACC, we calculate mean, standard deviation, and the absolute integral over time for all dimensions and for the magnitude of the raw signal. For the other signals, we clean and then extract features using NeuroKit2. For RESP, we calculated the mean and standard deviation for inhalation and exhalation duration, the inhalation/exhalation ratio, volume (amount of air taken in), and breath rate (breaths per minute). 
+	All features were inspired by Schmidt et al. For body temperature (TEMP), we calculate mean, standard deviation, minimum, maximum, and slope from window start to finish over the raw signal. For the accelerometry (ACC), we calculate mean, standard deviation, and the absolute integral over time for all dimensions and for the magnitude of the raw signal. For the other signals, we clean and then extract features using NeuroKit2. For RESP, we calculated the mean and standard deviation for inhalation and exhalation duration, the inhalation/exhalation ratio, volume (amount of air taken in), and breath rate (breaths per minute). 
 \newline
-For EDA, we calculated the mean, standard deviation, minimum, maximum, slope, and features for the skin conductance level (SCL) and skin conductance response (SCR) components of the signal. EDA reflects the skin’s response bursts and recovery to impetus. As described in Schmidt et al, the “SCL represents a slowly varying baseline conductivity, while the SCR is a short term response to a stimulus.” We calculated correlation of SCL over time as well as the mean and standard deviation of SCL and SCR. We also calculated the number of segments, sum of startle magnitudes and startle response durations as well as the area under SCRs. See Healey et al. for a deeper description13. Additionally, we had to upsample the EDA wrist data from 4 Hz to 8 Hz due to a signal processing frequency requirement in Neurokit2. We performed linear interpolation to upsample.
+For electrodermal activity (EDA), we calculated the mean, standard deviation, minimum, maximum, slope, and features for the skin conductance level (SCL) and skin conductance response (SCR) components of the signal. EDA reflects the skin’s response bursts and recovery to impetus. As described in Schmidt et al, the “SCL represents a slowly varying baseline conductivity, while the SCR is a short term response to a stimulus.” We calculated correlation of SCL over time as well as the mean and standard deviation of SCL and SCR. We also calculated the number of segments, sum of startle magnitudes and startle response durations as well as the area under SCRs. See Healey et al. for a deeper description$[6]$. Additionally, we had to upsample the EDA wrist data from 4 Hz to 8 Hz due to a signal processing frequency requirement in Neurokit2. We performed linear interpolation to upsample.
 \newline
-	We also convert BVP and ECG signals to Heart Rate (HR) and Heart Rate Variability using Neurokit2. We then calculate mean and standard deviation of HR and HRV, the percent of large intervals (RR intervals differing more than 50 ms), triangular interpolation index, root mean square of RR intervals, and ultra low (0.01-0.04 Hz), low (0.04-0.15 Hz), high (0.15-0.4 Hz), and ultra high (0.4-1.0 Hz) frequency bands’ power spectral density. 
+We also convert BVP and ECG signals to Heart Rate (HR) and Heart Rate Variability using Neurokit2. We then calculate mean and standard deviation of HR and HRV, the percent of large intervals (RR intervals differing more than 50 ms), triangular interpolation index, root mean square of RR intervals, and ultra low (0.01-0.04 Hz), low (0.04-0.15 Hz), high (0.15-0.4 Hz), and ultra high (0.4-1.0 Hz) frequency bands’ power spectral density. 
 \newline
 Finally, we had to forgo EMG data since we couldn’t resolve Neurokit2 processing errors with this signal. 
 \newline
@@ -155,6 +156,9 @@ final_data$chest_TEMP_slope = (final_data$chest_TEMP_slope - mean(final_data$che
 final_data$wrist_TEMP_mean = (final_data$wrist_TEMP_mean - mean(final_data$wrist_TEMP_mean))/sd(final_data$wrist_TEMP_mean)
 final_data$chest_ECG_HRV_mean = (final_data$chest_ECG_HRV_mean - mean(final_data$chest_ECG_HRV_mean))/sd(final_data$chest_ECG_HRV_mean)
 final_data$wrist_BVP_HRV_mean = (final_data$wrist_BVP_HRV_mean - mean(final_data$wrist_BVP_HRV_mean))/sd(final_data$wrist_BVP_HRV_mean)
+final_data$wrist_EDA_slope = (final_data$wrist_EDA_slope - mean(final_data$wrist_EDA_slope))/sd(final_data$wrist_EDA_slope)
+final_data$wrist_SCR_num_segments = (final_data$wrist_SCR_num_segments - mean(final_data$wrist_SCR_num_segments))/sd(final_data$wrist_SCR_num_segments)
+final_data$chest_ACC_magnitude_mean = (final_data$chest_ACC_magnitude_mean - mean(final_data$chest_ACC_magnitude_mean))/sd(final_data$chest_ACC_magnitude_mean)
 ```
 
 ```{r train test split, include=FALSE}
@@ -253,10 +257,10 @@ binned_residuals_vs_x = function(model, model_description, x, xlab) {
 We randomly split the data into 80% for the training data and the remaining 20% for the test data. We perform a logistic regression model with the chosen 14 extracted features on our training data. The features we used in our model are shown in Table 2 below:
 
 #### Table 2: Features used in our full model
-```{r create var table,fig.align='center', echo = FALSE}
+```{r create var table,fig.align='center', echo = FALSE, warning=FALSE, message = FALSE}
 model_vars <- data.frame("Feature" = c('chest_EDA_slope, wrist_EDA_slope', 'chest_RESP_breath_rate',
                 'chest_RESP_volume', 'chest_SCR_num_segments, wrist_SCR_num_segments',
-               'chest_ACC_magnitude_mean, wrist_ACC_magnitude_mean', 'chest_TEMP_mean, wrist_TEMP_mean','Chest_TEMP_slope', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean'), "Devices" = c("RespiBan,Empatica E4","RespiBan","RespiBan","RespiBan, Empatica E4","RespiBan, Empatica E4","RespiBan, Empatica E4", "RespiBan","RespiBan", "Empatica E4"), "Description" = c("Rate of change in EDA",  "Breath per Minute", "Amount volume of air inhale per Minute", "Number of skin conductivity responses (SCR)", "Average magnitude of acceleration", "Average body temperature"," Rate of change of the body temperature from window starts to finishes", "Average Heart Rate Variability", "Average Heart Rate Variability"))
+               'chest_ACC_magnitude_mean, wrist_ACC_magnitude_mean', 'chest_TEMP_mean, wrist_TEMP_mean','Chest_TEMP_slope', 'chest_ECG_HRV_mean', 'wrist_BVP_HRV_mean'), "Devices" = c("RespiBan, E4","RespiBan","RespiBan","RespiBan, E4","RespiBan, E4","RespiBan, E4", "RespiBan","RespiBan", "E4"), "Description" = c("     Rate of change in EDA",  "     Breath per Minute", "     Amount volume of air inhale per Minute", "     Number of skin conductivity responses (SCR)", "     Average magnitude of acceleration", "     Average body temperature","     Rate of change of the body temperature from window starts to finishes", "     Average Heart Rate Variability", "     Average Heart Rate Variability"))
 
 kable(model_vars)
 ```
@@ -303,30 +307,47 @@ binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interac
 #### II. Results 
 After performing a stepwise backward selection on the models, 9 features appear to be statistically significant in discriminating between stress and amusement conditions in the model (these features are shown below in Table 3). It appears that the model has a 94.2% prediction accuracy (95% CI = (90.76, 96.65)). The confusion matrix shows that the model has the sensitivity rate of 89.01%, while a specificity rate 96.76%. 
 \newline
-The ROC curve is plotted to display the trade-off between sensitivity and specificity of the models. We picked the threshold of 0.5 to compare the performance of our predictions to random guesses. The model has an area under the curve (AUC) of 0.929, which shows that our predictions are better than random guesses.
-
+The ROC curve is plotted to display the trade-off between sensitivity and specificity of the models. We picked the threshold of 0.5 to compare the performance of our predictions to random guesses. The model has an area under the curve (AUC) of 0.9902, which shows that our predictions are better than random guesses.
 
 ```{r full ROC, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE,comment=NA, fig.width=3,fig.height=3}
 #par(mfrow=c(1,2))
-show_roc(chest_wrist_simple, DO_STRIDE)
-rect(0, 1.1, 1, 1.7, xpd=TRUE, col="white", border="white")
-title("Chest and Wrist Model")
+#https://cran.r-project.org/web/packages/plotROC/vignettes/examples.html
+true_affect <- test$affect
+full <- get_probabilities(chest_wrist_simple,DO_STRIDE) 
+
+full_data <- data.frame(affect = true_affect, 
+                   full = full)
+
+basicplot <- ggplot(full_data, aes(d = affect, m = full)) + geom_roc(n.cuts = 0)
+basicplot + style_roc(theme = theme_grey) +
+  labs(title = "Chest and Wrist Model",caption = "Figure 3") + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8))) + annotate("text", x = .75, y = .25, label = paste("AUC =", round(calc_auc(basicplot)$AUC, 4))) 
+
+#show_roc(chest_wrist_simple, DO_STRIDE)
+#rect(0, 1.1, 1, 1.7, xpd=TRUE, col="white", border="white")
+#title("Chest and Wrist Model")
 ```
 
-#### Table 3: shows the coefficients of the significant predictors in the chest and wrist model. 
+#### Table 3: Coefficient estimates of the significant predictors in the chest and wrist model. 
 ```{r full coeff table, echo=FALSE, warning=FALSE, message=FALSE}
 full_coef = tidy(chest_wrist_simple,conf.int = TRUE)
 rounded <- full_coef %>% mutate_at(vars('estimate','std.error','statistic','p.value','conf.low','conf.high'), funs(round(., 3)))
 keeps <- c('term','estimate','conf.low','conf.high')
 rounded <- rounded[keeps]
-kable(rounded)
+
+full_coefficient <- data.frame("Terms" = c(rounded$term), 
+"Estimate" = c(rounded$estimate), "CI" = c("(-152.162,	-21.587)", "(0.381,1.218)", "(-7.952,-5.136)", "(-0.230,-0.141)", "(27.204,	168.772)","(0.741,2.115)","(-1.519,-0.241)","(0.265,1.178)", "(-6.994,	-4.478)", "(0.002,1.700)"))
+
+kable(full_coefficient)
 ```
 
 #### Interpretation: 
+Holding other features constant, as $x_{feature_i}$increases by one standard deviation, the odds of stress vs amusement increase by a factor of $e^{\beta_{i}}$). If $e^{\beta_{i}}$ is smaller than one, it indicates that the subject is less likely to be stressed. On the other hand, if $e^{\beta_{i}}$ is greater than one, it indicates that the subject is more likely to be stressed.
+\newline
+For example: 
 
-* Holding other features constant, as the average body temperature measured by the RespiBan (`chest_TEMP_mean`) increases by one standard deviation, the odds of stress vs amusement increase by a factor of 0.452 (or $e^{-0.795}$). 
+* Holding other features constant, as the average body temperature measured by the RespiBan (`chest_TEMP_mean`) increases by one standard deviation, the odds of stress vs amusement increase by a factor of 0.452 (or $e^{-0.795}$). Since 0.452 < 1, it means that subject is less likely to be stressed. 
 
-* Holding other features constant, as the average body temperature measured by the Empatica 4 (`wrist_TEMP_mean`) increases by one standard deviation, the odds of stress vs amusement increase by a factor of 2.02 (or $e^{0.703}$). 
+* Holding other features constant, as the average body temperature measured by the Empatica 4 (`wrist_TEMP_mean`) increases by one standard deviation, the odds of stress vs amusement increase by a factor of 2.02 (or $e^{0.703}$). Since 2.02 > 1,it means that subject is more likely to be stressed.
 
 ### 3.2 Wrist model 
 
@@ -370,26 +391,40 @@ binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$w
 #### II. Results 
 After performing a stepwise backward selection on both models, it appears that the model with interactions results with a 78.62% prediction accuracy (95% CI = (73.33,83.31)), while the model with only the main effects has a 77.17% prediction accuracy (95% CI = (71.76, 81.99)). The confusion matrix shows that the model with interactions has a significantly higher sensitivity rate (56.04% VS 41.76%), while a lower specificity rate (89.73% VS 94.59%). 
 \newline
-The ROC curve is plotted to display the trade-off between sensitivity and specificity of the models. We picked the threshold of 0.5 to compare the performance of our predictions to random guesses. It appears that the model with interactions has a greater area under the curve (AUC) of 0.729, while the model without interactions has a AUC of 0.318. 
+The ROC curve is plotted to display the trade-off between sensitivity and specificity of the models. We picked the threshold of 0.5 to compare the performance of our predictions to random guesses. It appears that the model with interactions has a greater area under the curve (AUC) of 0.7932, while the model without interactions has a AUC of 0.7379. 
 
 ```{r wrist ROC, echo=FALSE, fig.align='center', warning=FALSE,message=FALSE, comment=NA, fig.width=6,fig.height=3}
-par(mfrow=c(1,2))
-show_roc(wrist_simple, DO_STRIDE)
-rect(0, 1.1, 1, 1.7, xpd=TRUE, col="white", border="white")
-title("Wrist Model W/O Interaction")
 
-show_roc(wrist_interaction, DO_STRIDE)
-rect(0, 1.1, 1, 1.7, xpd=TRUE, col="white", border="white")
-title("Wrist Model W/ Interaction")
+true_affect <- test$affect
+wrist_sim <- get_probabilities(wrist_simple,DO_STRIDE) 
+wrist_int <- get_probabilities(wrist_interaction,DO_STRIDE) 
+
+wristdata <- data.frame(affect = true_affect, 
+                   simple =wrist_sim, interaction = wrist_int, stringsAsFactors = FALSE)
+
+simplot <- ggplot(wristdata, aes(d = affect, m = simple)) + geom_roc(n.cuts = 0)
+simplot<-simplot + style_roc(theme = theme_grey) +
+  labs(title = "Wrist Model Without Interaction",caption = "Figure 4") + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8))) + annotate("text", x = .75, y = .25, label = paste("AUC =", round(calc_auc(simplot)$AUC, 4))) 
+#auc(true_affect,wrist_sim)
+
+intplot <- ggplot(wristdata, aes(d = affect, m = interaction)) + geom_roc(n.cuts = 0) 
+intplot <- intplot + style_roc(theme = theme_grey) +
+  labs(title = "Wrist Model With Interaction",caption = "Figure 5") + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8))) + annotate("text", x = .75, y = .25, label = paste("AUC =", round(calc_auc(intplot)$AUC, 4))) 
+#auc(true_affect,wrist_int)
+
+plot_grid(simplot, intplot, label_size = 1, ncol = 2)
 ```
 
-Table 4: shows the coefficients of the significant predictors in our wrist model with interaction terms. 
+#### Table 4: Coefficient estimates of the significant predictors in our wrist model with interaction terms. 
 ```{r wrist coeff table, echo=FALSE, warning=FALSE, message=FALSE}
 wrist_coef = tidy(wrist_interaction,conf.int = TRUE)
 rounded_wrist <- wrist_coef %>% mutate_at(vars('estimate','std.error','statistic','p.value','conf.low','conf.high'), funs(round(., 3)))
 keeps <- c('term','estimate','conf.low','conf.high')
 rounded_wrist <- rounded_wrist[keeps]
-kable(rounded_wrist)
+
+wrist_coefficient <- data.frame("Terms" = c(rounded_wrist$term), 
+"Estimate" = c(rounded_wrist$estimate), "CI" = c("(1.785,2.405)", "(1.325,2.159)", "(-0.879,-0.356)", "(15.259,39.656)", "(-0.132,-0.094)","(0.067,0.546)","(0.151,0.754)","(-35.945,-6.410)", "(-0.122,-0.065)", "(0.234,0.859)", "(1.198,37.508)", "(-0.772,-0.380)", "(-0.485,20.795)"))
+kable(wrist_coefficient)
 ```
 
 #### Interpretation:
@@ -403,7 +438,7 @@ To assess the heterogeneity across the 15 subjects in response to stress vs. amu
 \newline
 We compared these average values between subjects and looked at the subject with the lowest average and highest average for each feature. The features with the largest range of overall averages are mean heart rate variability measured by ECG (RespiBan) and mean heart rate variability measured by BVP (Empatica E4). Logically, this makes sense as heart rate is very dependent on individual factors (genetics, body size, etc…). Further quantifications of the range of differences between subjects for all features are shown in Table 5 below:
 
-#### Table 5 Shows the minimum and maximum Subject average for each feature. This serves as a method for quantifying heterogeneity across subjects. 
+#### Table 5: Minimum and maximum Subject average for each feature. This serves as a method for quantifying heterogeneity across subjects. 
 ```{r het, echo=FALSE, warning=F,message=F}
 #look at means for each variable by subject by affect  
 table_het<-final_data%>%
@@ -447,7 +482,7 @@ We also experimented with different window shifts, thinking that a smaller windo
 ### 4.2 Limitations and Future Investigation
 This analysis is limited by the mere fact that it only has data on 15 participants and the likelihood that there was human error in wearing the devices properly is high. Subjects 2 and 17 did not have the RespiBan temperature sensor fully attached throughout the entire duration of the study protocol so the chest temperature recordings are not reliable. Subject 3 was sitting in a sunny workplace during the baseline condition and provided a valence level of 7 after the stress condition, claiming that he was looking forward to the next condition. His cheerfulness after the stress condition can likely be attributed to his surrounding environment rather than the elicited stress, hence why the survey is not fully reliable. Subject 6 and 8 experienced unrelated stress in the week prior to the study and reported that the study was rather relaxing or unstressful. Subjects 8 and 16 reported that the stressful condition was too cold. Subject 15 didn’t believe the cover story of the stress condition. These reports illuminate the potential biases and confounding factors that limit the generalizability of this analysis. 
 \newline
-It is possible that some data derived from the wrist-worn device, Empatica 4, might not be accurate. The study conducted by Milstein and Gordon $^{9}$, compared the measurement of electrodermal activity (EDA) and heart rate variability (HRV) obtained by the wrist-worn device, Empatica 4 (E4), and a well-validated MindWare mobile impedance cardiograph device during interactive dyadic state. The result showed that the mean IBIs derived from the E4 was similar to the result by the MindWare device. It also appeared that the E4 was less accurate in deriving HRV data and failed to report reliable EDA data in the study. A positive correlation between wrist movement and missing/poor data was also discovered$^{9}$. This might be something we should take into consideration in future studies. 
+It is possible that some data derived from the wrist-worn device, Empatica 4, might not be accurate. The study conducted by Milstein and Gordon $[10]$, compared the measurement of electrodermal activity (EDA) and heart rate variability (HRV) obtained by the wrist-worn device, Empatica 4 (E4), and a well-validated MindWare mobile impedance cardiograph device during interactive dyadic state. The result showed that the mean IBIs derived from the E4 was similar to the result by the MindWare device. It also appeared that the E4 was less accurate in deriving HRV data and failed to report reliable EDA data in the study. A positive correlation between wrist movement and missing/poor data was also discovered$[10]$. This might be something we should take into consideration in future studies. 
 \newline
 For future investigations, it might be advantageous to conduct a K-fold cross-validation (CV) as its estimates have a lower test error variance than the validation set approach (we are using in this study). However, the computational time for K-fold CV is much longer than the test is much longer than the validation set approach. 
 \newline
@@ -467,21 +502,22 @@ We created a model that decently categorizes stress vs. amusement based on physi
 \newline
 5. Desjardins, J. (2015, May 20), “The History of Wearable Technology,” Visual Capitalist. https://www.visualcapitalist.com/the-history-of-wearable-technology/
 \newline
-6. Jun, E., McDuff, D., Czerwinski, M. (2019). Circadian Rhythms and Physiological Synchrony: Evidence of the Impact of Diversity on Small Group Creativity. Proceedings of the ACM on Human-Computer Interaction. 3(60). 
+6. Healey, J. A., Picard, R.W (2005). Detecting Stress During Real-World Driving Tasks Using Physiological Sensors. IEEE Transactions on Intelligent Transportation Systems. 6(20), 156-166.
 \newline
-7. Kreibig, S. D. (2010). Autonomic nervous system activity in emotion: A review. Biological Psychology. 84(3), 394-421.
+7. Jun, E., McDuff, D., Czerwinski, M. (2019). Circadian Rhythms and Physiological Synchrony: Evidence of the Impact of Diversity on Small Group Creativity. Proceedings of the ACM on Human-Computer Interaction. 3(60). 
 \newline
-8. Makowski, D. (2017). Neurokit2. [Online]. Available: https://github.com/neuropsychology/NeuroKit
+8. Kreibig, S. D. (2010). Autonomic nervous system activity in emotion: A review. Biological Psychology. 84(3), 394-421.
 \newline
-9. Milstein, N., & Gordon, I. (2020, July 28). Validating Measures of Electrodermal Activity and Heart Rate Variability Derived From the Empatica E4 Utilized in Research Settings That Involve Interactive Dyadic States. Retrieved September 30, 2020, from https://www.frontiersin.org/articles/10.3389/fnbeh.2020.00148/full
+9. Makowski, D. (2017). Neurokit2. [Online]. Available: https://github.com/neuropsychology/NeuroKit
 \newline
-10. Schmidt, P., Reiss, A., Duerichen, R., Van Laerhoven, K. (2018). Introducing WESAD, a Multimodal Dataset for Wearable Stress and Affect Detection. ICMI '18: Proceedings of the 20th ACM International Conference on Multimodal Interaction. Boulder, CO. 2018 October 16-18. (pp. 400-408). https://doi.org/10.1145/3242969.3242985
+10. Milstein, N., & Gordon, I. (2020, July 28). Validating Measures of Electrodermal Activity and Heart Rate Variability Derived From the Empatica E4 Utilized in Research Settings That Involve Interactive Dyadic States. Retrieved September 30, 2020, from https://www.frontiersin.org/articles/10.3389/fnbeh.2020.00148/full
 \newline
-11. Seaward, B. L. (2006). Physiology of Stress. Managing Stress: Principles and Strategies for Health and Well-Being (5th ed., pp. 34-48). Jones and Bartlett Publishers.
+11. Schmidt, P., Reiss, A., Duerichen, R., Van Laerhoven, K. (2018). Introducing WESAD, a Multimodal Dataset for Wearable Stress and Affect Detection. ICMI '18: Proceedings of the 20th ACM International Conference on Multimodal Interaction. Boulder, CO. 2018 October 16-18. (pp. 400-408). https://doi.org/10.1145/3242969.3242985
 \newline
-12. Tuck, K. (2007). Power Cycling Algorithm using the MMA73x0L 3-Axis Linear Accelerometer. Freescale Semiconductor. 
+12. Seaward, B. L. (2006). Physiology of Stress. Managing Stress: Principles and Strategies for Health and Well-Being (5th ed., pp. 34-48). Jones and Bartlett Publishers.
 \newline
-13. Healey, J. A., Picard, R.W (2005). Detecting Stress During Real-World Driving Tasks Using Physiological Sensors. IEEE Transactions on Intelligent Transportation Systems. 6(20), 156-166.
+13. Tuck, K. (2007). Power Cycling Algorithm using the MMA73x0L 3-Axis Linear Accelerometer. Freescale Semiconductor. 
+
 
 ## Appendix
 
