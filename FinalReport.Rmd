@@ -82,8 +82,7 @@ The aim of this paper is to use the WESAD dataset to investigate the following q
 
 * Can we quantify the heterogeneity across individuals in the response to stress vs. amusement?
 
-Our analysis found that we can classify stress vs. amusement with high accuracy using a combination of wrist-worn and chest-worn device data in combination. Classifying solely based on wrist-worn device data is less accurate. The most heterogeneity between individuals in response to stress vs. amusement was related to heart rate variability. Our model found that all chest and wrist sensor data have characteristics that contribute significantly to detecting stress vs amusement, except from electrodermal activity (EDA).
-\newline
+Our analysis found that we can classify stress vs. amusement with high accuracy using a combination of wrist-worn and chest-worn device data in combination. Classifying solely based on wrist-worn device data is less accurate. The most heterogeneity between individuals in response to stress vs. amusement was related to heart rate variability. Our model found that all chest and wrist sensor data have characteristics that contribute significantly to detecting stress vs amusement, except from electrodermal activity (EDA). Additionally, our analysis found that heterogeneity between subjects in regards to affective states is prominent between chest temperature slope and chest electrodermal activity slope.\newline
 Section 2. of our paper will elaborate on the WESAD dataset, feature extraction from the data, and results of exploratory data analysis. In Section 3,  we will describe our methodology for the logistic regression model with features from both RespiBan and Empatica 4 (Full Model), as well as the logistic regression model with only features from Empatica 4 (Wrist Model). We will also analyse the results of both models in this section. In Section 4, we will provide model validations and sensitivity analysis and discuss the limitations and future investigations of our analysis. Lastly, in Section 5. we will develop conclusions of our analysis. The code will be attached in the Appendix.
 
 ## 2.Data and Exploratory Data Analysis
@@ -277,7 +276,7 @@ $\pi_i$ = probability of stress for given observation
 $1- \pi_i$ = probability of amusement for given observation
 \newline
 Then, we perform a stepwise backward selection on both of the models. 
-We decided not to include interactions for subject with sensor data or interactions between sensor data for the full model with chest and wrist data because the dimensionality increased dramatically upon adding either, and performing forward or backward selection including either set of interactions produces a model with all coefficients having p-values of 1. 
+We decided not to include interactions for subject with sensor data or interactions between sensor data for the full model with chest and wrist data because the dimensionality increased dramatically upon adding either, and performing forward or backward selection including either set of interactions produces a model with all coefficients having p-values of 1. We attempted to do a manual nested F test to achieve more significant p-values, but the model with all significant p-values had much lower classification accuracy so we stuck with the model above.
 
 Our logistic regression model assumes independence of residuals, linearity between log odds and covariates, and no significant impact due to influential points or multicollinearity. The plots to verify these assumptions can be found in Appendix. 
 
@@ -434,38 +433,17 @@ kable(wrist_coefficient)
 * When the average magnitude of acceleration (`wrist_ACC_magnitude_mean`) is 1 standard deviation above its mean, as average body temperature (`wrist_TEMP_mean`) increases by one standard deviation, the odds of stress vs amusement increase by a factor of 2.38 (or $e^{0.312+0.555}$). 
 
 ### 3.3 Heterogeneity Across Subjects
-To assess the heterogeneity across the 15 subjects in response to stress vs. amusement, we considered the average feature value across all windows for each subject during both stress and amusement states. It is important to look at averages of these features for each individual because by nature, individuals have different baselines for many of these features (i.e. heart rate). For example, if one subject has a low baseline heart rate of 60 and another subject has a resting heart rate of 80, and both of their heart rates increase by 30 bpm after the stress condition, their average heart rates over time will still be very different.  
+While we were revising our model, we observed an interesting trend with the chest temperate slope feature and electrodermal activity slope feature. In the model with covariates and interactions with the covariates and subject id, of the interaction coefficients that were significant, some of the chest temperature slope interactions had different relationships with the liklihood of being stressed.  
 \newline
-We compared these average values between subjects and looked at the subject with the lowest average and highest average for each feature. The features with the largest range of overall averages are mean heart rate variability measured by ECG (RespiBan) and mean heart rate variability measured by BVP (Empatica E4). Logically, this makes sense as heart rate is very dependent on individual factors (genetics, body size, etc…). Further quantifications of the range of differences between subjects for all features are shown in Table 5 below:
+The interaction effects of subjects 2, 3, 4,  5, 6, 11, 13 and chest temperature slope had a negative effect on the liklihood of being stressed which is opposite of the main effect of chest temperature slope on the liklihood of being stressed and opposite of the interaction effect of subject 14 and chest temperature slope of the likelihood of being stressed. For example, for a 1 standard deviation in crease in chest temperature slope, the liklihood of subject 2 being stressed decreases by a multiplicative factor of $e^{1.29}$. However, for a 1 standard deviation in crease in chest temperature slope, the liklihood of subject 14 being stressed increases by a multiplicative factor of $e^{8.53}$. This indicates that there exists heterogeneity between subjects in regards to stress vs. amusement states. 
 
-#### Table 5: Minimum and maximum Subject average for each feature. This serves as a method for quantifying heterogeneity across subjects. 
-```{r het, echo=FALSE, warning=F,message=F}
-#look at means for each variable by subject by affect  
-table_het<-final_data%>%
-  group_by(subject_id, affect)%>%
-  summarise(Mean_Chest_ACC = mean(chest_ACC_magnitude_mean), Mean_ECG_HRV = mean(chest_ECG_HRV_mean), Mean_Chest_EDA_Slope = mean(chest_EDA_slope), Mean_Breath_Rate = mean(chest_RESP_breath_rate), Mean_Resp_Vol = mean(chest_RESP_volume), Mean_Chest_SCR_Segments = mean(chest_SCR_num_segments), Mean_Chest_Temp = mean(chest_TEMP_mean), Mean_Wrist_ACC = mean(wrist_ACC_magnitude_mean), Mean_BVP_HRV = mean(wrist_BVP_HRV_mean), Mean_Wrist_EDA_Slope = mean(wrist_EDA_slope), Mean_Wrist_SCR_Segments = mean(wrist_SCR_num_segments), Mean_Wrist_Temp = mean(wrist_TEMP_mean) )
-
-
-data_hetero<-as.data.frame(table_het)
-
-## create table of min and max of overall averagews of each characteristic to show hetergenerity 
-library(gtsummary)
-data_hetero%>%select(-subject_id)%>%
-  tbl_summary(by = affect,
-              statistic = all_continuous() ~ c(
-                                     "({min}, {max})"),
-              digits = all_continuous()~2)%>%
-  bold_labels()%>%
-  modify_spanning_header(c("stat_1", "stat_2") ~"**(Min, Max)**")
-
-```
-
+The interaction effects of subjects 2, 3, 4, 5, 6, 7, 8, 9, 15, 17 and chest electrodermal activity slope had a positive effect on the liklihood of being stressed which is opposite of the main effect of chest electrodermal activity slope on the liklihood of being stressed and opposite of the interaction effect of subject 11 and chest electrodermal activity slope of the likelihood of being stressed. For example, for a 1 standard deviation in crease in chest electrodermal activity slope, the liklihood of subject 8 being stressed increases by a multiplicative factor of $e^{2.34}$. However, for a 1 standard deviation in crease in chest electrodermal activity slope, the liklihood of subject 15 being stressed decreases by a multiplicative factor of $e^{4.02}$. This also indicates that there exists heterogeneity between subjects in regards to stress vs. amusement states.
 ## 4. Discussion
 
 ### 4.1 Model Validation and Sensitivity Analysis 
 To confirm the assumption of independence of residuals, we plotted binned residuals vs. predicted. Our binned residuals were all incredibly small and less than $1e^{-11}$, which confirms independence. We plotted binned residuals vs. each feature in our model and they are also less than $1e^{-11}$. This confirms our assumption of linearity. All binned residuals fall within SE lines for the most part. We calculated Cook’s distance and there are no significant impacts due to influential points. 
 \newline
-To explore the sensitivity of our model, we modeled our final chosen variables with a probit model to see how dependent our final model classifications were on our choice to use a logit model. The accuracy of the probit model (93.84%) did not significantly differ from the logit model (94.20%), indicating that either model would have yielded similar classification results. Additionally, we tried multiple window shifts 
+To explore the sensitivity of our model, we modeled our final chosen variables with a probit model to see how dependent our final model classifications were on our choice to use a logit model. The accuracy of the probit model (93.84%) did not significantly differ from the logit model (94.20%), indicating that either model would have yielded similar classification results. Both probit and logit models are generalized linear models that can be used to model the relationship between numerical and categorical variables and a categorical outcome. The main difference between the two is that probit regression uses an inverse normal link function while logistic regression uses a logit link function. The reason we chose logistic regression is for the ease of interpretation -- interpreting inverse normal is not intuitive. Additionally, we tried multiple window shifts
 
 ```{r Simple Chest and Wrist probit model, include=FALSE}
 model_expression = affect ~ . - subject_id
