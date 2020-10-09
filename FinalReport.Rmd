@@ -253,7 +253,7 @@ binned_residuals_vs_x = function(model, model_description, x, xlab) {
 
 ### 3.1 Chest and Wrist Model 
 #### I. Methodology
-We randomly split the data into 80% for the training data and the remaining 20% for the test data. We perform a logistic regression model with the chosen 14 extracted features on our training data. The features we used in our model are shown in Table 2 below:
+We randomly split the data into 80% for the training data and the remaining 20% for the test data. We perform a logistic regression model with the chosen 14 extracted features on our training data. The features we used in our full model, before model selection, are shown in Table 2 below:
 
 #### Table 2: Features used in our full model
 ```{r create var table,fig.align='center', echo = FALSE, warning=FALSE, message = FALSE}
@@ -276,9 +276,8 @@ $\pi_i$ = probability of stress for given observation
 $1- \pi_i$ = probability of amusement for given observation
 \newline
 Then, we perform a stepwise backward selection on both of the models. 
-We decided not to include interactions for subject with sensor data or interactions between sensor data for the full model with chest and wrist data because the dimensionality increased dramatically upon adding either, and performing forward or backward selection including either set of interactions produces a model with all coefficients having p-values of 1. We attempted to do a manual nested F test to achieve more significant p-values, but the model with all significant p-values had much lower classification accuracy so we stuck with the model above.
+We decided not to include interactions for subject with sensor data or interactions between sensor data for the full model with chest and wrist data because the dimensionality increased dramatically upon adding either, and performing forward or backward selection including either set of interactions produces a model with all coefficients having p-values of 1. We attempted to do a manual model selection to achieve more significant p-values, but the model with all significant p-values had much lower classification accuracy so we stuck with the model above.
 
-Our logistic regression model assumes independence of residuals, linearity between log odds and covariates, and no significant impact due to influential points or multicollinearity. The plots to verify these assumptions can be found in Appendix. 
 
 ```{r simple chest and wrist model,include= FALSE}
 model_expression = affect ~ . -subject_id
@@ -461,6 +460,8 @@ We also experimented with different window shifts, thinking that a smaller windo
 This analysis is limited by the mere fact that it only has data on 15 participants and the likelihood that there was human error in wearing the devices properly is high. Subjects 2 and 17 did not have the RespiBan temperature sensor fully attached throughout the entire duration of the study protocol so the chest temperature recordings are not reliable. Subject 3 was sitting in a sunny workplace during the baseline condition and provided a valence level of 7 after the stress condition, claiming that he was looking forward to the next condition. His cheerfulness after the stress condition can likely be attributed to his surrounding environment rather than the elicited stress, hence why the survey is not fully reliable. Subject 6 and 8 experienced unrelated stress in the week prior to the study and reported that the study was rather relaxing or unstressful. Subjects 8 and 16 reported that the stressful condition was too cold. Subject 15 didn’t believe the cover story of the stress condition. These reports illuminate the potential biases and confounding factors that limit the generalizability of this analysis. 
 \newline
 It is possible that some data derived from the wrist-worn device, Empatica 4, might not be accurate. The study conducted by Milstein and Gordon $[10]$, compared the measurement of electrodermal activity (EDA) and heart rate variability (HRV) obtained by the wrist-worn device, Empatica 4 (E4), and a well-validated MindWare mobile impedance cardiograph device during interactive dyadic state. The result showed that the mean IBIs derived from the E4 was similar to the result by the MindWare device. It also appeared that the E4 was less accurate in deriving HRV data and failed to report reliable EDA data in the study. A positive correlation between wrist movement and missing/poor data was also discovered$[10]$. This might be something we should take into consideration in future studies. 
+\newline
+We also recognize that we derived a large amount of features given the amount of data. We understand that this limits our analysis because of the small effective sample sizes due to autocorrelations. In future analysis we might look into decreasing the amount of features we engineer. 
 \newline
 For future investigations, it might be advantageous to conduct a K-fold cross-validation (CV) as its estimates have a lower test error variance than the validation set approach (we are using in this study). However, the computational time for K-fold CV is much longer than the test is much longer than the validation set approach. 
 \newline
