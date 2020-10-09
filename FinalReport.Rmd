@@ -41,7 +41,7 @@ pkgTest("finalfit")
 pkgTest("gtsummary")
 pkgTest("aod")
 pkgTest("plotROC")
-# pkgTest("car")
+pkgTest("car")
 ##pkgTest("InformationValue")
 ```
 
@@ -301,6 +301,11 @@ binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interac
 binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_TEMP_slope, 'Slope of Chest Temperature')
 binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
 ```
+
+```{r, include=FALSE}
+vif(chest_wrist_simple)
+```
+
 
 #### II. Results 
 After performing a stepwise backward selection on the models, 9 features appear to be statistically significant in discriminating between stress and amusement conditions in the model (these features are shown below in Table 3). It appears that the model has a 94.2% prediction accuracy (95% CI = (90.76, 96.65)). The confusion matrix shows that the model has the sensitivity rate of 89.01%, while a specificity rate 96.76%. 
