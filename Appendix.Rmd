@@ -1,5 +1,7 @@
 ---
 title: "Appendix"
+author: "Hunter Gregory, Grace Langford, Jaravee Boonchant"
+date: "9 October 2020"
 output:
   pdf_document: default
   html_document: default
@@ -32,7 +34,7 @@ pkgTest("knitr")
 pkgTest("tibble")
 pkgTest("pROC") #ROC curves
 pkgTest("acepack")
-pkgTest("latticeExtra") # install R 3.6.3 if your version is too low for latticeExtra: https://cloud.r-project.org/bin/macosx/
+#pkgTest("latticeExtra") # install R 3.6.3 if your version is too low for latticeExtra: https://cloud.r-project.org/bin/macosx/
 pkgTest("arm") #binned residuals
 pkgTest("questionr") #odds ratio function
 pkgTest("cowplot")
@@ -40,7 +42,8 @@ pkgTest("nnet")
 pkgTest("finalfit")
 pkgTest("gtsummary")
 pkgTest("aod")
-# pkgTest("car")
+pkgTest("plotROC")
+pkgTest("car")
 ##pkgTest("InformationValue")
 ```
 
@@ -48,6 +51,8 @@ pkgTest("aod")
 ```{r remove-col}
 ## remove unecessary columns 
 data = read.csv("WESAD-one-sec-shift.csv")
+data_2min_window = read.csv('WESAD-2-min-window.csv')
+
 bad_columns = c('X1', 
                 'wrist_BVP_HRV_low_high_freq_ratio', 'chest_ECG_HRV_low_high_freq_ratio',
                 'wrist_BVP_HRV_low_freq_normalized', 'chest_ECG_HRV_low_freq_normalized', 
@@ -81,7 +86,7 @@ data = data[!get_ACC_component_cols('z')]
 ```
 
 #Correlation Analysis
-```{r }
+```{r, include = FALSE}
 ## create data frame of just numeric variables to be used for correlation matrix
 num_data = data
 word_cols = c('affect', 'subject_id')
@@ -125,7 +130,7 @@ data %>% group_by(affect)%>% summarise(c = n())
 ```
 
 #Boxplots of Means of All Features
-```{r boxplots}
+```{r boxplots,include= FALSE}
 ## select all vars with means within their sensor
 colnames(data)[grepl('mean', colnames(data))]
 
@@ -190,7 +195,7 @@ ggplot(data, aes(x=affect, y=wrist_TEMP_mean)) + geom_boxplot()
 ```
 
 #Boxplots of all Acceleration Features
-```{r}
+```{r, include=FALSE}
 ## select all vars with ACC
 
 colnames(data)[grepl('ACC', colnames(data))]
@@ -216,7 +221,7 @@ ggplot(data, aes(x=affect, y=wrist_ACC_magnitude_absolute_integral)) + geom_boxp
 
 
 #Boxplots of all Heart rate vars
-```{r}
+```{r,include=FALSE}
 ## select all vars with HR
 ## ecg hrv mean is very good predictor so is % large intervals but they are very correlated 
 colnames(data)[grepl('HRV', colnames(data))]
@@ -245,7 +250,7 @@ ggplot(data, aes(x=affect, y=wrist_BVP_HRV_mean)) + geom_boxplot()
 
 
 #Boxplots of all temperature vars
-```{r}
+```{r, include = FALSE}
 ## select all vars with temp
 ## min are all similar, slope is not helpful, std max and mean are all similarly helpful so we choose mean
 colnames(data)[grepl('TEMP', colnames(data))]
@@ -268,6 +273,23 @@ ggplot(data, aes(x=affect, y=chest_TEMP_std)) + geom_boxplot()
 
 ```
 
+# Distribution of Average Skin Temperature and Number of Skin Conductivity Responses (SCR) Across Subjects
+```{r, echo=FALSE, fig.align='center', warning=FALSE,message=FALSE, comment=NA, fig.width=6,fig.height=3}
+ggplot(data, aes(x = wrist_TEMP_mean)) +
+  geom_histogram(aes(color = affect, fill = affect),
+                position = "identity", bins = 30) +
+    facet_wrap(~ subject_id, scales = "free_x", ncol = 5) +
+  labs(title = "Nomalized Average Skin Temperature Captured by Empatica E4", x = "Normalized Body Temperature (°C)", y = "count", caption = "Figure 3") + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8)), axis.title = element_text(family = "Helvetica", size = (6)),legend.title = element_text( size = 5,face = "bold.italic", family = "Helvetica"), 
+                 legend.text = element_text(size = 5, face = "italic",family = "Helvetica"), legend.position="bottom", legend.box = "horizontal", axis.text = element_text(size = 3), strip.text.x = element_text(size = 3))
+
+ggplot(data = data, aes(x = chest_SCR_num_segments)) +
+    geom_histogram(aes(color=affect, fill = affect), bins = 20) +
+    facet_wrap(~ subject_id,  scales = "free_x", ncol = 5) +
+  labs(title = "Nomalized Number of Skin Conductivity Responses (SCR) Captured by RespiBan", x = "Nomalized Number of Skin Conductivity Responses (SCR)", y = "count" ) + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8)), axis.title = element_text(family = "Helvetica", size = (6)),legend.title = element_text( size = 5,face = "bold.italic", family = "Helvetica"), legend.text = element_text(size = 5, face = "italic",family = "Helvetica"), legend.position="bottom", legend.box = "horizontal", axis.text = element_text(size = 3), strip.text.x = element_text(size = 3))
+ 
+```
+
+
 # Model Fitting
 ```{r create data, include=FALSE}
 good_columns = c('affect', 'subject_id', 
@@ -289,6 +311,24 @@ final_data$chest_TEMP_slope = (final_data$chest_TEMP_slope - mean(final_data$che
 final_data$wrist_TEMP_mean = (final_data$wrist_TEMP_mean - mean(final_data$wrist_TEMP_mean))/sd(final_data$wrist_TEMP_mean)
 final_data$chest_ECG_HRV_mean = (final_data$chest_ECG_HRV_mean - mean(final_data$chest_ECG_HRV_mean))/sd(final_data$chest_ECG_HRV_mean)
 final_data$wrist_BVP_HRV_mean = (final_data$wrist_BVP_HRV_mean - mean(final_data$wrist_BVP_HRV_mean))/sd(final_data$wrist_BVP_HRV_mean)
+final_data$wrist_EDA_slope = (final_data$wrist_EDA_slope - mean(final_data$wrist_EDA_slope))/sd(final_data$wrist_EDA_slope)
+final_data$wrist_SCR_num_segments = (final_data$wrist_SCR_num_segments - mean(final_data$wrist_SCR_num_segments))/sd(final_data$wrist_SCR_num_segments)
+final_data$chest_ACC_magnitude_mean = (final_data$chest_ACC_magnitude_mean - mean(final_data$chest_ACC_magnitude_mean))/sd(final_data$chest_ACC_magnitude_mean)
+data_2min_window$subject_id = as.factor(data_2min_window$subject_id)
+data_2min_window$chest_EDA_slope = (data_2min_window$chest_EDA_slope - mean(data_2min_window$chest_EDA_slope))/sd(data_2min_window$chest_EDA_slope)
+data_2min_window$chest_RESP_breath_rate = (data_2min_window$chest_RESP_breath_rate - mean(data_2min_window$chest_RESP_breath_rate))/sd(data_2min_window$chest_RESP_breath_rate)
+data_2min_window$chest_RESP_volume = (data_2min_window$chest_RESP_volume - mean(data_2min_window$chest_RESP_volume))/sd(data_2min_window$chest_RESP_volume)
+data_2min_window$chest_SCR_num_segments = (data_2min_window$chest_SCR_num_segments - mean(data_2min_window$chest_SCR_num_segments))/sd(data_2min_window$chest_SCR_num_segments)
+data_2min_window$wrist_ACC_magnitude_mean = (data_2min_window$wrist_ACC_magnitude_mean - mean(data_2min_window$wrist_ACC_magnitude_mean))/sd(data_2min_window$wrist_ACC_magnitude_mean)
+data_2min_window$chest_TEMP_mean = (data_2min_window$chest_TEMP_mean - mean(data_2min_window$chest_TEMP_mean))/sd(data_2min_window$chest_TEMP_mean)
+data_2min_window$chest_TEMP_slope = (data_2min_window$chest_TEMP_slope - mean(data_2min_window$chest_TEMP_slope))/sd(data_2min_window$chest_TEMP_slope)
+data_2min_window$wrist_TEMP_mean = (data_2min_window$wrist_TEMP_mean - mean(data_2min_window$wrist_TEMP_mean))/sd(data_2min_window$wrist_TEMP_mean)
+# data_2min_window$chest_ECG_HRV_mean = (data_2min_window$chest_ECG_HRV_mean - mean(data_2min_window$chest_ECG_HRV_mean))/sd(data_2min_window$chest_ECG_HRV_mean)
+data_2min_window$wrist_BVP_HRV_mean = (data_2min_window$wrist_BVP_HRV_mean - mean(data_2min_window$wrist_BVP_HRV_mean))/sd(data_2min_window$wrist_BVP_HRV_mean)
+data_2min_window$wrist_EDA_slope = (data_2min_window$wrist_EDA_slope - mean(data_2min_window$wrist_EDA_slope))/sd(data_2min_window$wrist_EDA_slope)
+data_2min_window$wrist_SCR_num_segments = (data_2min_window$wrist_SCR_num_segments - mean(data_2min_window$wrist_SCR_num_segments))/sd(data_2min_window$wrist_SCR_num_segments)
+data_2min_window$chest_ACC_magnitude_mean = (data_2min_window$chest_ACC_magnitude_mean - mean(data_2min_window$chest_ACC_magnitude_mean))/sd(data_2min_window$chest_ACC_magnitude_mean)
+data_2min_window$affect = as.factor(data_2min_window$affect)
 ```
 
 ```{r train test split, include=FALSE}
@@ -296,17 +336,28 @@ set.seed(100)
 percent_train = 0.8
 old_train = data.frame()
 old_test = data.frame()
+old_train_2min = data.frame()
+old_test_2min = data.frame()
 for (id in unique(final_data$subject_id)) {
   subject_df =  final_data[final_data$subject_id == id,]
   train_indices = sample(nrow(subject_df), floor(percent_train * nrow(subject_df)))
   old_train = rbind(old_train, subject_df[train_indices,])
   old_test = rbind(old_test, subject_df[-train_indices,])
+  
+  subject_df_2min = data_2min_window[data_2min_window$subject_id == id,]
+  train_indices_2min = sample(nrow(subject_df_2min), floor(percent_train * nrow(subject_df_2min)))
+  old_train_2min = rbind(old_train_2min, subject_df_2min[train_indices_2min,])
+  old_test_2min = rbind(old_test_2min, subject_df_2min[-train_indices_2min,])
 }
 train = old_train[seq(1, nrow(old_train), 10),]
 test = old_test[seq(1, nrow(old_test), 10),]
 STRIDE = 30 # FIXME more sophisticated striding before sampling?
 strided_train = old_train[seq(1, nrow(old_train), 30),]
 strided_test = old_test[seq(1, nrow(old_test), 30),]
+train_2min = old_train_2min[seq(1, nrow(old_train_2min), 10),]
+test_2min = old_test_2min[seq(1, nrow(old_test_2min), 10),]
+strided_train_2min = old_train_2min[seq(1, nrow(old_train_2min), 30),]
+strided_test_2min = old_test_2min[seq(1, nrow(old_test_2min), 30),]
 ```
 
 ```{r model helpers, include=FALSE}
@@ -380,13 +431,49 @@ binned_residuals_vs_x = function(model, model_description, x, xlab) {
 }
 ```
 
+```{r model helpers for 2 min window data, include=FALSE}
+get_2min_train_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_train_2min)
+  }
+  return(train_2min)
+}
+get_2min_test_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_test_2min)
+  }
+  return(test_2min)
+}
+get_2min_logistic_model = function(model_expression, do_backwards_selection, do_stride=FALSE) {
+  model_data = get_2min_train_data(do_stride)
+  logistic_model = glm(model_expression, data=model_data, family="binomial", maxit=100)
+  if (do_backwards_selection) {
+    logistic_model <- logistic_model %>% stepAIC(trace = FALSE,direction = "backward" )
+  }
+  print(summary(logistic_model))
+  logistic_model
+}
+get_2min_probabilities = function(model, do_stride=FALSE) {
+  predict(model, get_2min_test_data(do_stride), type='response')
+}
+get_2min_predictions = function(model, do_stride=FALSE) {
+  probabilities = get_2min_probabilities(model, do_stride)
+  as.factor(ifelse(probabilities > 0.5, 'stress', 'amusement'))
+}
+print_2min_stats = function(model, do_stride=FALSE) {
+  model_data = get_2min_test_data(do_stride)
+  predictions = get_2min_predictions(model, do_stride)
+  print(paste('accuracy: ', mean(predictions == model_data$affect)))
+  print(confusionMatrix(predictions, as.factor(model_data$affect)))
+}
+```
+
 ## Chest and wrist model
-```{r simple chest and wrist model,include= TRUE}
+```{r simple chest and wrist model,include= TRUE,warning=FALSE}
 model_expression = affect ~ . -subject_id
 DO_STRIDE = FALSE
 chest_wrist_simple = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(chest_wrist_simple, DO_STRIDE)
-show_roc(chest_wrist_simple, DO_STRIDE)
 show_cooks(chest_wrist_simple, DO_STRIDE)
 binned_residuals_vs_preds(chest_wrist_simple, 'Simple Chest and Wrist Model')
 par(mfrow=c(3,2))
@@ -403,14 +490,25 @@ binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interac
 binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$chest_TEMP_slope, 'Slope of Chest Temperature')
 binned_residuals_vs_x(chest_wrist_simple, 'Chest and Wrist Model WIthout Interactions', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
 ```
+```{r, include=TRUE}
+vif(chest_wrist_simple)
+```
+
+## Model with Subject Interaction
+```{r, warning=FALSE}
+model_expression = affect ~ (wrist_BVP_HRV_mean + chest_EDA_slope + chest_RESP_breath_rate + wrist_ACC_magnitude_mean)  + wrist_BVP_HRV_mean:subject_id
+DO_STRIDE = FALSE
+chest_wrist_simple = get_logistic_model(model_expression, do_backwards_selection=FALSE, DO_STRIDE)
+
+print_stats(chest_wrist_simple, DO_STRIDE)
+```
 
 ## Wrist model without interactions
-```{r wrist model without interactions}
+```{r wrist model without interactions,warning=FALSE}
 model_expression = affect ~ wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean 
 DO_STRIDE = FALSE
 wrist_simple = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(wrist_simple, DO_STRIDE)
-show_roc(wrist_simple, DO_STRIDE)
 show_cooks(wrist_simple, DO_STRIDE)
 binned_residuals_vs_preds(wrist_simple, 'Simple Chest and Wrist Model')
 par(mfrow=c(3,2))
@@ -422,7 +520,7 @@ binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_
 ```
 
 ## Wrist model with interactions
-```{r wrist model with interactions}
+```{r wrist model with interactions,warning=FALSE}
 model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - wrist_EDA_slope:wrist_SCR_num_segments 
 DO_STRIDE = FALSE
 wrist_interaction = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
@@ -438,31 +536,26 @@ binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$w
 binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
 ```
 
-#Quantifying heterogeneity
+ 
+# Investigating Heterogeneity
 
-```{r}
-##look at means for each variable by subject by affect  
-table_het<-final_data%>%
-  group_by(subject_id, affect)%>%
-  summarise(Mean_Chest_ACC = mean(chest_ACC_magnitude_mean), Mean_ECG_HRV = mean(chest_ECG_HRV_mean), Mean_Chest_EDA_Slope = mean(chest_EDA_slope), Mean_Breath_Rate = mean(chest_RESP_breath_rate), Mean_Resp_Vol = mean(chest_RESP_volume), Mean_Chest_SCR_Segments = mean(chest_SCR_num_segments), Mean_Chest_Temp = mean(chest_TEMP_mean), Mean_Wrist_ACC = mean(wrist_ACC_magnitude_mean), Mean_BVP_HRV = mean(wrist_BVP_HRV_mean), Mean_Wrist_EDA_Slope = mean(wrist_EDA_slope), Mean_Wrist_SCR_Segments = mean(wrist_SCR_num_segments), Mean_Wrist_Temp = mean(wrist_TEMP_mean) )
-
-##create table of above means
-data_hetero<-as.data.frame(table_het)
-
-## create table of min and max of overall averages of each characteristic to show hetergeneeity 
-library(gtsummary)
-data_hetero%>%select(-subject_id)%>%
-  tbl_summary(by = affect,
-              statistic = all_continuous() ~ c(
-                                     "({min}, {max})"),
-              digits = all_continuous()~2)%>%
-  bold_labels()%>%
-  modify_spanning_header(c("stat_1", "stat_2") ~"**(Min, Max)**")
-
+### Model indicating heterogeneity of chest temperature slope
+```{r, warning=TRUE}
+model_expression = affect ~ (chest_TEMP_slope) + subject_id + (chest_TEMP_slope ):subject_id 
+DO_STRIDE = FALSE
+chest_wrist_simple = get_logistic_model(model_expression, do_backwards_selection=FALSE, DO_STRIDE)
+```
+### Model indicating heterogeneity of chest electrodermal activity slope
+```{r, warning=TRUE}
+model_expression = affect ~ (chest_EDA_slope) + subject_id + (chest_EDA_slope ):subject_id 
+DO_STRIDE = FALSE
+chest_wrist_simple = get_logistic_model(model_expression, do_backwards_selection=FALSE, DO_STRIDE)
 ```
 
-# Probit Model
-```{r Simple Chest and Wrist probit model}
+# Sensitivity Checks
+
+### Probit Model
+```{r Simple Chest and Wrist probit model, warning=TRUE}
 model_expression = affect ~ . - subject_id
 DO_STRIDE = FALSE
 Simple_probit = get_probit_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
@@ -472,4 +565,10 @@ show_cooks(Simple_probit, DO_STRIDE)
 binned_residuals_vs_preds(Simple_probit, 'Chest and Wrist Probit Model')
 ```
 
-
+### Wrist model for 2 min window
+```{r wrist model for 2 min window, include=TRUE}
+model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - wrist_EDA_slope:wrist_SCR_num_segments + subject_id
+DO_STRIDE = FALSE
+wrist_interaction_2min = get_2min_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
+print_stats(wrist_interaction_2min, DO_STRIDE)
+```
