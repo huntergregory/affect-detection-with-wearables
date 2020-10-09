@@ -130,7 +130,7 @@ Figure 1 below shows an example of a feature that appears to have strong distinc
 par(mfrow=c(1,2))
 
 f1 <- ggplot(data, aes(x=affect, y=chest_ECG_HRV_mean)) + geom_boxplot() + labs(title = "Distribution of Chest Heart Rate Variability ", y = "Mean ECG Heart Rate Variability", caption = "Figure 1") + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8)))
-f2 <- ggplot(data, aes(x=affect, y=chest_ACC_magnitude_std)) + geom_boxplot() +  labs(title = " Distribution of Chest Acceration Magnitude STD.",y = "Acceration Magnitude STD", caption = "Figure 2") + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8)))
+f2 <- ggplot(data, aes(x=affect, y=chest_EDA_mean)) + geom_boxplot() +  labs(title = " Distribution of Chest Electrodermal Activity Mean.",y = "Electrodermal Activity Mean", caption = "Figure 2") + theme(plot.title = element_text(family = "Helvetica", face = "bold", size = (8)))
 
 plot_grid(f1, f2, label_size = 1, ncol = 2)
 ```
