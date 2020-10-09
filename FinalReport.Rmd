@@ -114,7 +114,7 @@ In addition, we mean-centered and standardized all features we chose for a bette
 The dataset we use can be recreated on the Duke Compute Cluster by running the following command: sbatch /hpc/group/sta440-f20/hlg16/affect-detection-with-wearables/create-wesad-csv.sh. This will output the data to /work/hlg16/WESAD-one-sec-shift-round2.csv
 
 ### 2.3 Exploratory Data Analysis
-First, we discarded HR/HRV frequency features since only high and ultra high bands were detected. We also immediately removed standard deviations, maxima, and minima since all were highly correlated with means. 
+First, we discarded HR/HRV frequency features since only high and ultra high bands were detected. We also immediately removed standard deviations, maxima, and minima since all were highly correlated with means. We investigated correlations between chest and wrist data as a whole, but we did not find any concerning correlations. 
 \newline
 As seen in the boxplot in Figure 1, mean chest heart rate variability (from ECG) increases overall when subjects are amused. We include this feature and the same one for BVP, yet the other HR/HRV features are highly correlated (e.g. 0.74 correlation between ECG mean HRV and ECG percent large intervals), so we do not include them. Similar boxplots and Pearson correlations were used throughout exploration. 
 \newline
