@@ -47,6 +47,7 @@ pkgTest("car")
 
 ```{r load data, include=FALSE}
 data = read.csv('WESAD-one-sec-shift.csv')
+data_2min_window = read.csv('WESAD-2-min-window.csv')
 ```
 
 ```{r column helpers, include=FALSE}
@@ -158,24 +159,54 @@ final_data$wrist_BVP_HRV_mean = (final_data$wrist_BVP_HRV_mean - mean(final_data
 final_data$wrist_EDA_slope = (final_data$wrist_EDA_slope - mean(final_data$wrist_EDA_slope))/sd(final_data$wrist_EDA_slope)
 final_data$wrist_SCR_num_segments = (final_data$wrist_SCR_num_segments - mean(final_data$wrist_SCR_num_segments))/sd(final_data$wrist_SCR_num_segments)
 final_data$chest_ACC_magnitude_mean = (final_data$chest_ACC_magnitude_mean - mean(final_data$chest_ACC_magnitude_mean))/sd(final_data$chest_ACC_magnitude_mean)
+
+data_2min_window$subject_id = as.factor(data_2min_window$subject_id)
+data_2min_window$chest_EDA_slope = (data_2min_window$chest_EDA_slope - mean(data_2min_window$chest_EDA_slope))/sd(data_2min_window$chest_EDA_slope)
+data_2min_window$chest_RESP_breath_rate = (data_2min_window$chest_RESP_breath_rate - mean(data_2min_window$chest_RESP_breath_rate))/sd(data_2min_window$chest_RESP_breath_rate)
+data_2min_window$chest_RESP_volume = (data_2min_window$chest_RESP_volume - mean(data_2min_window$chest_RESP_volume))/sd(data_2min_window$chest_RESP_volume)
+data_2min_window$chest_SCR_num_segments = (data_2min_window$chest_SCR_num_segments - mean(data_2min_window$chest_SCR_num_segments))/sd(data_2min_window$chest_SCR_num_segments)
+data_2min_window$wrist_ACC_magnitude_mean = (data_2min_window$wrist_ACC_magnitude_mean - mean(data_2min_window$wrist_ACC_magnitude_mean))/sd(data_2min_window$wrist_ACC_magnitude_mean)
+data_2min_window$chest_TEMP_mean = (data_2min_window$chest_TEMP_mean - mean(data_2min_window$chest_TEMP_mean))/sd(data_2min_window$chest_TEMP_mean)
+data_2min_window$chest_TEMP_slope = (data_2min_window$chest_TEMP_slope - mean(data_2min_window$chest_TEMP_slope))/sd(data_2min_window$chest_TEMP_slope)
+data_2min_window$wrist_TEMP_mean = (data_2min_window$wrist_TEMP_mean - mean(data_2min_window$wrist_TEMP_mean))/sd(data_2min_window$wrist_TEMP_mean)
+# data_2min_window$chest_ECG_HRV_mean = (data_2min_window$chest_ECG_HRV_mean - mean(data_2min_window$chest_ECG_HRV_mean))/sd(data_2min_window$chest_ECG_HRV_mean)
+data_2min_window$wrist_BVP_HRV_mean = (data_2min_window$wrist_BVP_HRV_mean - mean(data_2min_window$wrist_BVP_HRV_mean))/sd(data_2min_window$wrist_BVP_HRV_mean)
+data_2min_window$wrist_EDA_slope = (data_2min_window$wrist_EDA_slope - mean(data_2min_window$wrist_EDA_slope))/sd(data_2min_window$wrist_EDA_slope)
+data_2min_window$wrist_SCR_num_segments = (data_2min_window$wrist_SCR_num_segments - mean(data_2min_window$wrist_SCR_num_segments))/sd(data_2min_window$wrist_SCR_num_segments)
+data_2min_window$chest_ACC_magnitude_mean = (data_2min_window$chest_ACC_magnitude_mean - mean(data_2min_window$chest_ACC_magnitude_mean))/sd(data_2min_window$chest_ACC_magnitude_mean)
 ```
 
 ```{r train test split, include=FALSE}
 set.seed(100)
 percent_train = 0.8
+
 old_train = data.frame()
 old_test = data.frame()
+
+old_train_2min = data.frame()
+old_test_2min = data.frame()
 for (id in unique(final_data$subject_id)) {
   subject_df =  final_data[final_data$subject_id == id,]
   train_indices = sample(nrow(subject_df), floor(percent_train * nrow(subject_df)))
   old_train = rbind(old_train, subject_df[train_indices,])
   old_test = rbind(old_test, subject_df[-train_indices,])
+  
+  subject_df_2min = data_2min_window[data_2min_window$subject_id == id,]
+  train_indices_2min = sample(nrow(subject_df_2min), floor(percent_train * nrow(subject_df_2min)))
+  old_train_2min = rbind(old_train_2min, subject_df_2min[train_indices_2min,])
+  old_test_2min = rbind(old_test_2min, subject_df_2min[-train_indices_2min,])
 }
+
 train = old_train[seq(1, nrow(old_train), 10),]
 test = old_test[seq(1, nrow(old_test), 10),]
 STRIDE = 30 # FIXME more sophisticated striding before sampling?
 strided_train = old_train[seq(1, nrow(old_train), 30),]
 strided_test = old_test[seq(1, nrow(old_test), 30),]
+
+train_2min = old_train_2min[seq(1, nrow(old_train_2min), 10),]
+test_2min = old_test_2min[seq(1, nrow(old_test_2min), 10),]
+strided_train_2min = old_train_2min[seq(1, nrow(old_train_2min), 30),]
+strided_test_2min = old_test_2min[seq(1, nrow(old_test_2min), 30),]
 ```
 
 ```{r model helpers, include=FALSE}
@@ -248,6 +279,44 @@ binned_residuals_vs_x = function(model, model_description, x, xlab) {
            xlab = xlab, ylab = "Average Residuals", main = paste("Binned Residual Plot for ", model_description), cex.pts = 0.8, col.pts = 1, col.int = "gray")
 }
 ```
+
+```{r model helpers for 2 min window data, include=FALSE}
+get_2min_train_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_train_2min)
+  }
+  return(train_2min)
+}
+get_2min_test_data = function(do_stride) { 
+  if(do_stride) {
+    return(strided_test_2min)
+  }
+  return(test_2min)
+}
+get_2min_logistic_model = function(model_expression, do_backwards_selection, do_stride=FALSE) {
+  model_data = get_2min_train_data(do_stride)
+  logistic_model = glm(model_expression, data=model_data, family="binomial", maxit=100)
+  if (do_backwards_selection) {
+    logistic_model <- logistic_model %>% stepAIC(trace = FALSE,direction = "backward" )
+  }
+  print(summary(logistic_model))
+  logistic_model
+}
+get_2min_probabilities = function(model, do_stride=FALSE) {
+  predict(model, get_2min_test_data(do_stride), type='response')
+}
+get_2min_predictions = function(model, do_stride=FALSE) {
+  probabilities = get_2min_probabilities(model, do_stride)
+  as.factor(ifelse(probabilities > 0.5, 'stress', 'amusement'))
+}
+print_2min_stats = function(model, do_stride=FALSE) {
+  model_data = get_2min_test_data(do_stride)
+  predictions = get_2min_predictions(model, do_stride)
+  print(paste('accuracy: ', mean(predictions == model_data$affect)))
+  print(confusionMatrix(predictions, as.factor(model_data$affect)))
+}
+```
+
 
 ## 3. Analysis
 
@@ -373,6 +442,14 @@ binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$w
 binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_SCR_num_segments, 'Wrist SCR Num Segments')
 binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
 ```
+
+```{r wrist model for 2 min window, include=FALSE}
+model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - wrist_EDA_slope:wrist_SCR_num_segments + subject_id
+DO_STRIDE = FALSE
+wrist_interaction_2min = get_2min_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
+print_stats(wrist_interaction_2min, DO_STRIDE)
+```
+
 
 #### II. Results 
 TODO UPDATE ACCURACIES ETC.
