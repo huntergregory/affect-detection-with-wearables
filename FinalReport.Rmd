@@ -82,7 +82,7 @@ The aim of this paper is to use the WESAD dataset to investigate the following q
 
 * Can we quantify the heterogeneity across individuals in the response to stress vs. amusement?
 
-Our analysis found that we can classify stress vs. amusement with high accuracy using a combination of wrist-worn and chest-worn device data in combination. Classifying solely based on wrist-worn device data is less accurate. The most heterogeneity between individuals in response to stress vs. amusement was related to heart rate variability. Our model found that all chest and wrist sensor data have characteristics that contribute significantly to detecting stress vs amusement, except from electrodermal activity (EDA). Additionally, our analysis found that heterogeneity between subjects in regards to affective states is prominent between chest temperature slope and chest electrodermal activity slope.\newline
+Our analysis found that we can classify stress vs. amusement with high accuracy using a combination of wrist-worn and chest-worn device data in combination, and in fact, we achieve 100% accuracy from perfect separation when subjects are distinguished from each other. Classifying solely based on wrist-worn device data is less accurate. Our model found that all chest and wrist sensor data have characteristics that contribute significantly to detecting stress vs amusement. Additionally, our analysis found that subjects have different reactions to stress i.e. that heterogeneity between subjects in regards to affective states is prominent between chest temperature slope and chest electrodermal activity slope.\newline
 Section 2. of our paper will elaborate on the WESAD dataset, feature extraction from the data, and results of exploratory data analysis. In Section 3,  we will describe our methodology for the logistic regression model with features from both RespiBan and Empatica 4 (Full Model), as well as the logistic regression model with only features from Empatica 4 (Wrist Model). We will also analyse the results of both models in this section. In Section 4, we will provide model validations and sensitivity analysis and discuss the limitations and future investigations of our analysis. Lastly, in Section 5. we will develop conclusions of our analysis. The code will be attached in the Appendix.
 
 ## 2.Data and Exploratory Data Analysis
@@ -275,12 +275,10 @@ $\pi_i$ = probability of stress for given observation
 \newline
 $1- \pi_i$ = probability of amusement for given observation
 \newline
-Then, we perform a stepwise backward selection on both of the models. 
-We decided not to include interactions for subject with sensor data or interactions between sensor data for the full model with chest and wrist data because the dimensionality increased dramatically upon adding either, and performing forward or backward selection including either set of interactions produces a model with all coefficients having p-values of 1. We attempted to do a manual model selection to achieve more significant p-values, but the model with all significant p-values had much lower classification accuracy so we stuck with the model above.
-
+Then, we perform a stepwise backward selection on the model. In order to determine which features were significant, we did not include subject indicators; the data is perfectly separated by subject with a combination of our features (see Section 2.3), so a model with subject indicators achieves 100% accuracy yet has inflated standard errors (greater than $10^5$) leading to p-values of 1. Hence, we are unable to account for subject effects in our model for the sake of interpretability.
 
 ```{r simple chest and wrist model,include= FALSE}
-model_expression = affect ~ . -subject_id
+model_expression = affect ~ . -subject_id # 100% accuracy if subject_id is not subtracted
 DO_STRIDE = FALSE
 chest_wrist_simple = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(chest_wrist_simple, DO_STRIDE)
@@ -308,9 +306,9 @@ vif(chest_wrist_simple)
 
 
 #### II. Results 
-After performing a stepwise backward selection on the models, 9 features appear to be statistically significant in discriminating between stress and amusement conditions in the model (these features are shown below in Table 3). It appears that the model has a 94.2% prediction accuracy (95% CI = (90.76, 96.65)). The confusion matrix shows that the model has the sensitivity rate of 89.01%, while a specificity rate 96.76%. 
+After performing a stepwise backward selection on the model, 9 features appear to be statistically significant in discriminating between stress and amusement conditions in the model (these features are shown below in Table 3). It appears that the model has a 94.2% prediction accuracy (95% CI = (90.76, 96.65)). The confusion matrix shows that the model has the sensitivity rate of 89.01%, while a specificity rate 96.76%. 
 \newline
-The ROC curve is plotted to display the trade-off between sensitivity and specificity of the models. We picked the threshold of 0.5 to compare the performance of our predictions to random guesses. The model has an area under the curve (AUC) of 0.9902, which shows that our predictions are better than random guesses.
+The ROC curve is plotted to display the trade-off between sensitivity and specificity of the model. We picked the threshold of 0.5 to compare the performance of our predictions to random guesses. The model has an area under the curve (AUC) of 0.9902, which shows that our predictions are better than random guesses.
 
 ```{r full ROC, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE,comment=NA, fig.width=3,fig.height=3}
 #par(mfrow=c(1,2))
@@ -340,6 +338,8 @@ rounded <- rounded[keeps]
 full_coefficient <- data.frame("Terms" = c(rounded$term), 
 "Estimate" = c(rounded$estimate), "CI" = c("(-152.162,	-21.587)", "(0.381,1.218)", "(-7.952,-5.136)", "(-0.230,-0.141)", "(27.204,	168.772)","(0.741,2.115)","(-1.519,-0.241)","(0.265,1.178)", "(-6.994,	-4.478)", "(0.002,1.700)"))
 
+# FIXME HARDCODED
+
 kable(full_coefficient)
 ```
 
@@ -355,28 +355,12 @@ For example:
 ### 3.2 Wrist model 
 
 #### I. Methodology
-We wish to determine whether stress (or amusement) can be detected using only the wrist-worn wearable. For this model, we used the same training and test dataset as the previous model. We performed a logistic regression model with the 5 features measured by Empatica 4 (Table 2) on our training data. After performing the stepwise backward selection on the model, it appears that all features are statistically significant except the mean temperature. We also constructed another model including those 5 features with all possible interaction terms. Then, we performed stepwise backward selection on the model with interactions.
+We wish to determine whether stress (or amusement) can be detected using only the wrist-worn wearable. For this model, we used the same training and test dataset as the previous model. We performed a logistic regression model with the 5 features measured by Empatica 4 (Table 2) on our training data. These features do not perfectly separate the data by subject, so we inluded subject indicators to account for subject effects. We also included all possible interactions in our model (besides interactons of features with subject indicators). After performing the stepwise backward selection on the model, it appears that all features are statistically significant besides some subject indicators and the interaction of HRV with EDA slope as well as EDA slope with SCR number of segments. 
 \newline 
 The plots to verify logistic regression model’s assumptions are included in Appendix. 
 
-```{r wrist model without interactions, include=FALSE}
-model_expression = affect ~ wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean 
-DO_STRIDE = FALSE
-wrist_simple = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
-print_stats(wrist_simple, DO_STRIDE)
-show_roc(wrist_simple, DO_STRIDE)
-show_cooks(wrist_simple, DO_STRIDE)
-binned_residuals_vs_preds(wrist_simple, 'Simple Chest and Wrist Model')
-par(mfrow=c(3,2))
-binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_ACC_magnitude_mean, 'Mean Wrist ACC magnitude')
-binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_BVP_HRV_mean, 'Mean Wrist BVP HRV')
-binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_EDA_slope, 'Slope Wrist EDA')
-binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_SCR_num_segments, 'Wrist SCR Num Segments')
-binned_residuals_vs_x(wrist_simple, 'Simple Chest and Wrist Model', train$wrist_TEMP_mean, 'Mean Wrist Temperature')
-```
-
 ```{r wrist model with interactions, include=FALSE}
-model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - wrist_EDA_slope:wrist_SCR_num_segments 
+model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_EDA_slope+wrist_SCR_num_segments+wrist_TEMP_mean)^2 - wrist_EDA_slope:wrist_SCR_num_segments + subject_id
 DO_STRIDE = FALSE
 wrist_interaction = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(wrist_interaction, DO_STRIDE)
@@ -392,6 +376,10 @@ binned_residuals_vs_x(wrist_interaction, 'Wrist Model with Interaction', train$w
 ```
 
 #### II. Results 
+TODO UPDATE ACCURACIES ETC.
+TODO DON'T MENTION MODEL WITHOUT INTERACTIONS
+TODO SAY WE CHOOSE NOT TO INTERPRET SUBJECT INDICATORS
+
 After performing a stepwise backward selection on both models, it appears that the model with interactions results with a 78.62% prediction accuracy (95% CI = (73.33,83.31)), while the model with only the main effects has a 77.17% prediction accuracy (95% CI = (71.76, 81.99)). The confusion matrix shows that the model with interactions has a significantly higher sensitivity rate (56.04% VS 41.76%), while a lower specificity rate (89.73% VS 94.59%). 
 \newline
 The ROC curve is plotted to display the trade-off between sensitivity and specificity of the models. We picked the threshold of 0.5 to compare the performance of our predictions to random guesses. It appears that the model with interactions has a greater area under the curve (AUC) of 0.7932, while the model without interactions has a AUC of 0.7379. 
@@ -399,7 +387,7 @@ The ROC curve is plotted to display the trade-off between sensitivity and specif
 ```{r wrist ROC, echo=FALSE, fig.align='center', warning=FALSE,message=FALSE, comment=NA, fig.width=6,fig.height=3}
 
 true_affect <- test$affect
-wrist_sim <- get_probabilities(wrist_simple,DO_STRIDE) 
+# deleted model without interactions
 wrist_int <- get_probabilities(wrist_interaction,DO_STRIDE) 
 
 wristdata <- data.frame(affect = true_affect, 
@@ -424,6 +412,8 @@ wrist_coef = tidy(wrist_interaction,conf.int = TRUE)
 rounded_wrist <- wrist_coef %>% mutate_at(vars('estimate','std.error','statistic','p.value','conf.low','conf.high'), funs(round(., 3)))
 keeps <- c('term','estimate','conf.low','conf.high')
 rounded_wrist <- rounded_wrist[keeps]
+
+# FIXME HARDCODED
 
 wrist_coefficient <- data.frame("Terms" = c(rounded_wrist$term), 
 "Estimate" = c(rounded_wrist$estimate), "CI" = c("(1.785,2.405)", "(1.325,2.159)", "(-0.879,-0.356)", "(15.259,39.656)", "(-0.132,-0.094)","(0.067,0.546)","(0.151,0.754)","(-35.945,-6.410)", "(-0.122,-0.065)", "(0.234,0.859)", "(1.198,37.508)", "(-0.772,-0.380)", "(-0.485,20.795)"))
