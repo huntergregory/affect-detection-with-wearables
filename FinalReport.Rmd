@@ -282,7 +282,6 @@ model_expression = affect ~ . -subject_id # 100% accuracy if subject_id is not s
 DO_STRIDE = FALSE
 chest_wrist_simple = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(chest_wrist_simple, DO_STRIDE)
-show_roc(chest_wrist_simple, DO_STRIDE)
 show_cooks(chest_wrist_simple, DO_STRIDE)
 binned_residuals_vs_preds(chest_wrist_simple, 'Simple Chest and Wrist Model')
 par(mfrow=c(3,2))
@@ -338,19 +337,20 @@ rounded <- rounded[keeps]
 full_coefficient <- data.frame("Terms" = c(rounded$term), 
 "Estimate" = c(rounded$estimate), "CI" = c("(-152.162,	-21.587)", "(0.381,1.218)", "(-7.952,-5.136)", "(-0.230,-0.141)", "(27.204,	168.772)","(0.741,2.115)","(-1.519,-0.241)","(0.265,1.178)", "(-6.994,	-4.478)", "(0.002,1.700)"))
 
-# FIXME HARDCODED
-
+MultFac <- round(exp(rounded$estimate),3)
+stresslikelihood <- as.factor(ifelse(MultFac > 1, 'more likely', 'less likely'))
+full_coefficient <- data.frame("Terms" = c(rounded$term),
+"Estimate" = c(rounded$estimate), "CI" = c("(-1.055, -2.322)", "(0.381,1.218)", "(-7.952,-5.136)", "(-2.893,-1.772)", "(0.293, 1.816)","(0.741,2.115)","(-1.519,-0.241)","(0.265,1.178)", "(-6.994, -4.478)", "(0.002,1.700)"),"MultFac" = c(MultFac), stresslikelihood)
+colnames(full_coefficient) <- c('Terms','Estimate','95% CI',"Multiplicative Factor","Stress Likelihood")
 kable(full_coefficient)
 ```
 
-#### Interpretation: 
-Holding other features constant, as $x_{feature_i}$increases by one standard deviation, the odds of stress vs amusement increase by a factor of $e^{\beta_{i}}$). If $e^{\beta_{i}}$ is smaller than one, it indicates that the subject is less likely to be stressed. On the other hand, if $e^{\beta_{i}}$ is greater than one, it indicates that the subject is more likely to be stressed.
+Table 3 displays the coefficient estimates ($\beta_i$) of each significant features ($x_{feature_i}$) as well as their 95% confidence interval.Holding all other features constant, as $x_{feature_i}$ increases by one standard deviation, the odds of stress vs amusement increase by a multiplicative factor of $e^{\beta_{i}}$, which is calculated in the fourth column. 
+If this factor is smaller than one, the subject is less likely to be stressed. On the other hand, if it is greater than one, the subject is more likely to be stressed. 
 \newline
-For example: 
-
-* Holding other features constant, as the average body temperature measured by the RespiBan (`chest_TEMP_mean`) increases by one standard deviation, the odds of stress vs amusement increase by a factor of 0.452 (or $e^{-0.795}$). Since 0.452 < 1, it means that subject is less likely to be stressed. 
-
-* Holding other features constant, as the average body temperature measured by the Empatica 4 (`wrist_TEMP_mean`) increases by one standard deviation, the odds of stress vs amusement increase by a factor of 2.02 (or $e^{0.703}$). Since 2.02 > 1,it means that subject is more likely to be stressed.
+Our model shows that when holding all other features at constant, the increase in one standard deviation of volume of air inhale per minute (RespiBan), the average accelerometry (both from RespiBan and E4),the average body temperature (E4), or the average heart rate variability (E4) results in the more likelihood of being stressed. On the other hand, when holding all other features at constant, the increase in one standard deviation of Number of skin conductivity responses (both from RespiBan and E4), the average accelerometry (RespiBan), the average accelerometry (E4),the average body temperature (RespiBan), or the average heart rate variability (RespiBan) results in the less likelihood of being stressed. 
+\newline
+One interesting finding is that an increase in chest_temp_mean leads to the less likelihood of being stressed, while an increase in wrist_TEMP_mean leads to the more likelihood of being stressed. These opposite reactions are not due to correlation because the two features have a -0.02 correlation. However, we found an increase in HRV from RespiBan results in less likelihood of being stressed, while an increase HRV from E4 leads to the more likelihood of being stressed. These may be due to the small correlation of 0.22 between the two features.
 
 ### 3.2 Wrist model 
 
@@ -364,7 +364,6 @@ model_expression = affect ~ (wrist_ACC_magnitude_mean+wrist_BVP_HRV_mean+wrist_E
 DO_STRIDE = FALSE
 wrist_interaction = get_logistic_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(wrist_interaction, DO_STRIDE)
-show_roc(wrist_interaction, DO_STRIDE)
 show_cooks(wrist_interaction, DO_STRIDE)
 binned_residuals_vs_preds(wrist_interaction, 'Wrist Model with Interaction')
 par(mfrow=c(3,2))
@@ -446,7 +445,6 @@ model_expression = affect ~ . - subject_id
 DO_STRIDE = FALSE
 Simple_probit = get_probit_model(model_expression, do_backwards_selection=TRUE, DO_STRIDE)
 print_stats(Simple_probit, DO_STRIDE)
-show_roc(Simple_probit, DO_STRIDE)
 show_cooks(Simple_probit, DO_STRIDE)
 binned_residuals_vs_preds(Simple_probit, 'Chest and Wrist Probit Model')
 ```
