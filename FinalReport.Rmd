@@ -448,6 +448,8 @@ The interaction effects of subjects 2, 3, 4, 5, 6, 7, 8, 9, 15, 17 and chest ele
 To confirm the assumption of independence of residuals, we plotted binned residuals vs. predicted. Our binned residuals were all incredibly small and less than $1e^{-11}$, which confirms independence. We plotted binned residuals vs. each feature in our model and they are also less than $1e^{-11}$. This confirms our assumption of linearity. All binned residuals fall within SE lines for the most part. We calculated Cook’s distance and there are no significant impacts due to influential points. 
 \newline
 To explore the sensitivity of our model, we modeled our final chosen variables with a probit model to see how dependent our final model classifications were on our choice to use a logit model. The accuracy of the probit model (93.84%) did not significantly differ from the logit model (94.20%), indicating that either model would have yielded similar classification results. Both probit and logit models are generalized linear models that can be used to model the relationship between numerical and categorical variables and a categorical outcome. The main difference between the two is that probit regression uses an inverse normal link function while logistic regression uses a logit link function. The reason we chose logistic regression is for the ease of interpretation -- interpreting inverse normal is not intuitive. Additionally, we tried multiple window shifts
+\newline 
+We checked for multicollinearity between the features in our models, but all vif values were less than 4, indicating that is not concerning multicollinearity in our models.
 
 ```{r Simple Chest and Wrist probit model, include=FALSE}
 model_expression = affect ~ . - subject_id
